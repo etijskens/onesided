@@ -31,6 +31,14 @@ def test_tryout4():
 def test_messagebox():
     mb = onesided.core.MessageBox()
     assert mb.nMessages() == 0
+    a = np.array([0,1,2,3,4,5,6,7,8,9])
+    msgid = onesided.core.add_int_array(mb,1,a)
+    assert msgid == 0
+    print(mb.str())
+    b = a * 10.0
+    msgid = onesided.core.add_float_array(mb,1,a)
+    assert msgid == 1
+    print(mb.str())
 
 #===============================================================================
 # The code below is for debugging a particular test in eclipse/pydev.

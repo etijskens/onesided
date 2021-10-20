@@ -7,6 +7,8 @@
 // The example below is modified after http://people.duke.edu/~ccc14/cspy/18G_C++_Python_pybind11.html#More-on-working-with-numpy-arrays
 //#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
 namespace py = pybind11;
 
 #include <mpi.h>
@@ -16,6 +18,7 @@ namespace py = pybind11;
 #include <sstream>
 #include <exception>
 
+#include "ArrayInfo.hpp"
 #include "MessageBox.cpp"
 
 void hello()
@@ -416,6 +419,29 @@ void tryout4()
     std::cout<<std::endl;
 }
 
+
+Index_t
+add_int_array(MessageBox& mb, Index_t for_rank, py::array_t<Index_t> a)
+{
+    ArrayInfo<Index_t,1> a__(a);
+    void * ptrData = a__.data();
+    size_t nBytes = a.shape(0)*sizeof(Index_t);
+    std::cout<<"nbytes="<<nBytes<<std::endl;
+    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes);
+    return msgid;
+}
+
+Index_t
+add_float_array(MessageBox& mb, Index_t for_rank, py::array_t<double> a)
+{
+    ArrayInfo<double,1> a__(a);
+    void * ptrData = a__.data();
+    size_t nBytes = a.shape(0)*sizeof(double);
+    std::cout<<"nbytes="<<nBytes<<std::endl;
+    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes);
+    return msgid;
+}
+
 PYBIND11_MODULE(core, m)
 {// optional module doc-string
     m.doc() = "pybind11 core plugin"; // optional module docstring
@@ -429,6 +455,8 @@ PYBIND11_MODULE(core, m)
     py::class_<MessageBox>(m, "MessageBox")
         .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
         .def("nMessages", &MessageBox::nMessages)
+        .def("str",&MessageBox::str)
         ;
-
+    m.def("add_int_array", &add_int_array);
+    m.def("add_float_array", &add_float_array);
 }
