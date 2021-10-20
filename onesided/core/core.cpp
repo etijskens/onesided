@@ -16,6 +16,8 @@ namespace py = pybind11;
 #include <sstream>
 #include <exception>
 
+#include "MessageBox.cpp"
+
 void hello()
 {
  // Initialize the MPI environment
@@ -43,29 +45,29 @@ void hello()
 
 }
 
-class Communicator
-{
-  public:
-    Communicator(MPI_Comm comm=MPI_COMM_WORLD) : comm_(comm)
-    {
-        MPI_Comm_size(comm_, &size_);
-        MPI_Comm_rank(comm_, &rank_);
-    }
-
-    int rank() const {return rank_;}
-    int size() const {return size_;}
-    MPI_Comm comm() const {return comm_;}
-
-    std::string str() const {
-        return std::string("[") + std::to_string(rank_) + "/" + std::to_string(size_) + "] ";
-    }
-
-  private:
-    MPI_Comm comm_;
-    int rank_
-      , size_
-      ;
-};
+//class Communicator
+//{
+//  public:
+//    Communicator(MPI_Comm comm=MPI_COMM_WORLD) : comm_(comm)
+//    {
+//        MPI_Comm_size(comm_, &size_);
+//        MPI_Comm_rank(comm_, &rank_);
+//    }
+//
+//    int rank() const {return rank_;}
+//    int size() const {return size_;}
+//    MPI_Comm comm() const {return comm_;}
+//
+//    std::string str() const {
+//        return std::string("[") + std::to_string(rank_) + "/" + std::to_string(size_) + "] ";
+//    }
+//
+//  private:
+//    MPI_Comm comm_;
+//    int rank_
+//      , size_
+//      ;
+//};
 
 
 void tryout1()
@@ -346,6 +348,7 @@ void tryout4()
 {
     Communicator comm;
     std::cout << comm.str() << "tryout2" << std::endl;
+    std::cout << comm.str() << "sizeof(int)=" <<sizeof(int)<< std::endl;
     if( comm.size() != 2 ) {
         std::cout<<"Expecting 2 processes."<<std::endl;
         return;
@@ -354,23 +357,20 @@ void tryout4()
     MessageBuffer msgbfr(3);
     std::cout<<comm.str()<<", size_="<<msgbfr.size()<<std::endl;
 
- // start access epoch
-//    MPI_Win_fence(0, msgbfr.win());
-     // rank 0 creates messages
-        if (comm.rank() == 0) {
-            msgbfr.newMessage(1);
-            msgbfr.newMessage(1);
-
-            std::cout<<comm.str()<<"header ; #="<<msgbfr.data()[0];
-            for( int i=1; i<10; i+=3) {
-                 std::cout<<"\n[ "<<msgbfr.data()[i]<<' '<<msgbfr.data()[i+1]<<' '<<msgbfr.data()[i+2]<<" ]";
-            }
-            std::cout<<std::endl;
-        }
-//    MPI_Win_fence(0, msgbfr.win());
-
     msgbfr.createWindow(comm);
+ // rank 0 creates messages
+    if (comm.rank() == 0) {
+        msgbfr.newMessage(1);
+        msgbfr.newMessage(1);
 
+        std::cout<<comm.str()<<"header ; #="<<msgbfr.data()[0];
+        for( int i=1; i<10; i+=3) {
+             std::cout<<"\n[ "<<msgbfr.data()[i]<<' '<<msgbfr.data()[i+1]<<' '<<msgbfr.data()[i+2]<<" ]";
+        }
+        std::cout<<std::endl;
+    }
+
+ // create a getbfr for rank 1 to store the message from rank 0
     int * getbfr = NULL;
     if( comm.rank() == 1) {
         getbfr = new int[40];
@@ -426,4 +426,9 @@ PYBIND11_MODULE(core, m)
     m.def("tryout2", &tryout2, "");
     m.def("tryout3", &tryout3, "");
     m.def("tryout4", &tryout4, "");
+    py::class_<MessageBox>(m, "MessageBox")
+        .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
+        .def("nMessages", &MessageBox::nMessages)
+        ;
+
 }
