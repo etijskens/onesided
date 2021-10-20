@@ -22,12 +22,10 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         int size_;
     };
 
-    class MessageStream;
  //------------------------------------------------------------------------------------------------
     class MessageBox
  //------------------------------------------------------------------------------------------------
     {
-        friend class MessageStream;
       public:
         MessageBox
           ( Index_t maxmsgs=100 // maximum number of messages that can be stored.
@@ -36,6 +34,8 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         ~MessageBox();
 
         Index_t nMessages() const;
+
+        MPI_Win window() { return window_; }
 
      // Add a message <bytes>, of length <nbytes> for rank <for_rank>
         Index_t addMessage(Index_t for_rank, void* bytes, size_t nBytes);
@@ -49,6 +49,9 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         Index_t& beginIndex(Index_t msgid) { return pHeaderSection_[msgid*2-1]; }
 
         std::string str() const;
+
+        int rank() const;
+        int nranks() const;
 
       private:
         MPI_Comm comm_;

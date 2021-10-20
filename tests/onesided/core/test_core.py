@@ -36,7 +36,7 @@ def test_messagebox():
     assert msgid == 0
     print(mb.str())
     b = a * 10.0
-    msgid = onesided.core.add_float_array(mb,1,a)
+    msgid = onesided.core.add_float_array(mb,1,b)
     assert msgid == 1
     print(mb.str())
 

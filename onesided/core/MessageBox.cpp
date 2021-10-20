@@ -30,7 +30,7 @@
     }
 
  //------------------------------------------------------------------------------------------------
- // class Communicator implementation
+ // class MessageBox implementation
  //------------------------------------------------------------------------------------------------
     MessageBox::
     MessageBox
@@ -132,3 +132,33 @@
         return ss.str();
     }
 
+    int MessageBox:: rank () const { return Communicator(comm_).rank(); }
+    int MessageBox::nranks() const { return Communicator(comm_).size(); }
+
+ //------------------------------------------------------------------------------------------------
+ // class Epoch implementation
+ // a RAII class, typical use:
+ //     Messagebox mb;
+ //     /* add some messages to mb */
+ //     {
+ //         Epoch epoch(mb); // RAII object, created at the beginning of a scope
+ //
+ //         int myrank = mb.rank();
+ //         for( int rank=0; rank<mb.nranks(); ++rank ) {
+ //             if( rank != myrank ) {
+ //                 /* retrieve messages from rank for myrank */
+ //             }
+ //         }
+ //     }// the epoch object goes out of scope, and is destroyed, which closes the MPI_Win_fence.
+ //------------------------------------------------------------------------------------------------
+    Epoch::
+    Epoch(MessageBox& mb, int assert=0) // not sure whether assert is useful
+    {
+        MPI_Win_fence(assert, mb.window());
+    }
+
+    Epoch::
+    ~Epoch()
+    {
+        MPI_Win_fence(0, mb.window());
+    }
