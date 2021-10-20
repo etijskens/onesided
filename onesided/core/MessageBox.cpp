@@ -139,7 +139,7 @@
  // class Epoch implementation
  // a RAII class, typical use:
  //     Messagebox mb;
- //     /* add some messages to mb */
+ //     /* Each rank can add some messages to its mb */
  //     {
  //         Epoch epoch(mb); // RAII object, created at the beginning of a scope
  //
@@ -147,6 +147,9 @@
  //         for( int rank=0; rank<mb.nranks(); ++rank ) {
  //             if( rank != myrank ) {
  //                 /* retrieve messages from rank for myrank */
+ //                 /* first retrieve the header section from rank's MessageBox */
+ //                 /* loop over all the messages in the header, skip messages not for my_rank */
+ //                 /* retrieve the messages which are for my_rank */
  //             }
  //         }
  //     }// the epoch object goes out of scope, and is destroyed, which closes the MPI_Win_fence.
