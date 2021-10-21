@@ -456,6 +456,7 @@ PYBIND11_MODULE(core, m)
         .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
         .def("nMessages", &MessageBox::nMessages)
         .def("str",&MessageBox::str)
+        .def("getMessages", &MessageBox::getMessages)
         ;
     m.def("add_int_array", &add_int_array);
     m.def("add_float_array", &add_float_array);

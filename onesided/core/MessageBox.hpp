@@ -24,6 +24,10 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
 
  //------------------------------------------------------------------------------------------------
     class MessageBox
+ // encapsulation of
+ //   - the MPI_Win object
+ //   - the MPI communicator (MPI_COMM_WORLD)
+ //   - MPI_Get for header and messages
  //------------------------------------------------------------------------------------------------
     {
       public:
@@ -48,13 +52,21 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         Index_t&   endIndex(Index_t msgid) { return pHeaderSection_[msgid*2+1]; }
         Index_t& beginIndex(Index_t msgid) { return pHeaderSection_[msgid*2-1]; }
 
+     // header and messages in a readable format, not generic for all message types though
         std::string str() const;
 
+     // access the MPI communicator:
         int rank() const;
         int nranks() const;
 
+     // Get header from some process (to be called inside an epoch)
+        Index_t* getHeaderFrom(int rank);
+        void getHeaders();
+        std::string headersStr() const;
+        void getMessages();
+
       private:
-        MPI_Comm comm_;
+        Communicator comm_;
         MPI_Win  window_;
         Index_t  maxmsgs_;
         void*    pBuffer_;
@@ -62,14 +74,37 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         Index_t* pHeaderSection_;
         Index_t* pMessageSection_;
         Index_t nMessageDWords_;
+
+        std::vector<std::vector<Index_t>> messageHeaders_;
+
+        size_t headerSize_() const { return 2 + 2*maxmsgs_; }
     };
 
  //------------------------------------------------------------------------------------------------
     class Epoch
+ // a RAII class, typical use:
+ //     Messagebox mb;
+ //     /* Each rank can add some messages to its mb */
+ //     {
+ //         Epoch epoch(mb); // RAII object, created at the beginning of a scope
+ //
+ //         int myrank = mb.rank();
+ //         for( int rank=0; rank<mb.nranks(); ++rank ) {
+ //             if( rank != myrank ) {
+ //                 /* retrieve messages from rank for myrank */
+ //                 /* first retrieve the header section from rank's MessageBox */
+ //                 /* loop over all the messages in the header, skip messages not for my_rank */
+ //                 /* retrieve the messages which are for my_rank */
+ //             }
+ //         }
+ //     }// the epoch object goes out of scope, and is destroyed, which closes the MPI_Win_fence.
  //------------------------------------------------------------------------------------------------
     {
       public:
-        Epoch(MessageBox& mb); // open an epoch for MessageBox mb
-        ~Epoch();              // close the epoch
+        Epoch(MessageBox& mb, int assert); // open an epoch for MessageBox mb
+        ~Epoch();                          // close the epoch
+      private:
+        Epoch(Epoch const &); // prevent object copy
+        MessageBox& mb_;
     };
  //------------------------------------------------------------------------------------------------
