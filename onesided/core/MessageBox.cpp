@@ -41,85 +41,92 @@
  //------------------------------------------------------------------------------------------------
     MessageBox::
     MessageBox
-      ( Index_t maxmsgs
-      , Index_t size // in bytes
+      ( Index_t  max_msgs
+      , Index_t size_in_bytes
       ) : comm_(MPI_COMM_WORLD)
-        , maxmsgs_(maxmsgs)
         , pBuffer_(NULL)
-        , pHeaderSection_(NULL)
-        , pMessageSection_(NULL)
     {
-        if( size == -1 ) {
-            size = 10000 * maxmsgs;
+        if( size_in_bytes == -1 ) {
+            size_in_bytes = 10000 *  max_msgs;
         }
 
-        Index_t size_dw = convertSizeInBytes<8>(size); // make sure the buffer is on 64bit boundaries
+        bufferSize_ = convertSizeInBytes<8>(size_in_bytes); // make sure the buffer is on 64bit boundaries
 
         int success =
         MPI_Win_allocate
-          ( static_cast<MPI_Aint>(size) // The size of the memory area exposed through the window, in bytes.
-          , sizeof(Index_t)             // The displacement unit is used to provide an indexing feature during
-                                        // RMA operations. Indeed, the target displacement specified during RMA
-                                        // operations is multiplied by the displacement unit on that target.
-                                        // The displacement unit is expressed in bytes, so that it remains
-                                        // identical in an heterogeneous environment.
-          , MPI_INFO_NULL
-          , comm_.comm()
-          , &pBuffer_
-          , &window_
+          ( static_cast<MPI_Aint>(size_in_bytes) // The size of the memory area exposed through the window, in bytes.
+          , sizeof(Index_t) // The displacement unit is used to provide an indexing feature during RMA operations. 
+          , MPI_INFO_NULL   // MPI_Info object
+          , comm_.comm()    // MPI_Comm communicator
+          , &pBuffer_       // pointer to allocated memory
+          , &window_        // pointer to the MPI_Win object
           );
 
         if( success != MPI_SUCCESS ) {
             std::string errmsg = comm_.str() + "MPI_Win_allocate failed.";
             throw std::runtime_error(errmsg);
         }
-        nMessages_ = static_cast<Index_t*>(pBuffer_);
-        nMessages_[0] = 0;
-        nMessages_[1] = 0;  // always 0, begin index of first message.
-        pHeaderSection_  = nMessages_ + 2;
-        // the header of a message contains 2 numbers:
-        //  - destination
-        //  - the index of the element past the end of the message.
-        // the index of the begin of the message is retrieved from the end
-        // of the previous message, which is 0 if the message id is 0 (stored at nMessages[0])
+        pBuffer_[0] = 0; // number of messages is initially 0.
+        headerSize_() = 2 + 2* max_msgs;  // also the begin index of the first message.
 
-        pMessageSection_ = pHeaderSection_ + 2*maxmsgs_;
-        nMessageDWords_ = size_dw - headerSize_();
-
-     // reserve space for the headers of the other ranks
-        messageHeaders_.resize(comm_.size());
+     // reserve space for getting the headers of the other ranks
+        receivedMessageHeaders_.resize(comm_.size()); // one std::vector<Index_t> per rank
         for( int r=0; r<comm_.size(); ++r) {
             if( r != comm_.rank() ) {// skip own rank
-                messageHeaders_[r].resize(headerSize_());
+                receivedMessageHeaders_[r].resize(headerSize_());
             }
         }
     }
 
+ // Buffer encapsulation:
+ // [ nMessages 2+2* maxMsgs_ dest_of_msg_1 end_of_msg_1 dest_of_msg_2 end_of_msg_2 ... dest_of_msg_maxmsgs_ end_of_msg_maxmsgs_
+ //   contents_of_msg_1 contents_of_msg_2 ...]
+ // the begin of a message is the end of the previous message
+
+    Index_t MessageBox::nMessages         (               void const * buffer) const { return static_cast<Index_t const *>(buffer)[0]; }
+
+    int     MessageBox::messageDestination(Index_t msgid, void const * buffer) const { return static_cast<Index_t const *>(buffer)[2 + 2*msgid]; }
+
+    Index_t MessageBox::messageBegin      (Index_t msgid, void const * buffer) const { return static_cast<Index_t const *>(buffer)[2 + 2*msgid - 1]; }
+
+    Index_t MessageBox::messageEnd        (Index_t msgid, void const * buffer) const { return static_cast<Index_t const *>(buffer)[2 + 2*msgid + 1]; }
+
+    Index_t MessageBox::messageSize       (Index_t msgid, void const * buffer) const {
+        return messageEnd(msgid,buffer) - messageBegin(msgid,buffer);
+    }
+//    Index_t MessageBox::messageSizeInBytes (Index_t msgid, void const * buffer=pBuffer_) const;
+
+    void MessageBox::
+    setNMessages(Index_t n) { static_cast<Index_t*>(pBuffer_)[0] = n; }
+
+    void MessageBox::
+    setMessageDestination(Index_t msgid, Index_t messageDestination) { static_cast<Index_t*>(pBuffer_)[2 + 2*msgid] = messageDestination; }
+
+    void MessageBox::
+    setMessageEnd        (Index_t msgid, Index_t messageEnd        ) { static_cast<Index_t*>(pBuffer_)[2 + 2*msgid + 1] = messageEnd; }
+
+ // Dtor
     MessageBox::
     ~MessageBox()
     {
         MPI_Win_free(&window_);
     }
 
-    Index_t
-    MessageBox::
-    nMessages() const
-    {
-        return nMessages_[0];
-    }
+
 
     Index_t
     MessageBox::
     addMessage(Index_t for_rank, void* bytes, size_t nBytes)
     {
-        Index_t msgid = *nMessages_;
-        Index_t ibegin = beginIndex(msgid);
-        endIndex(msgid) = ibegin + convertSizeInBytes<8,8>(nBytes);
-        rank(msgid) = for_rank;
+        Index_t msgid = nMessages(pBuffer_);
+        Index_t begin = messageBegin(msgid,pBuffer_);
+        setMessageEnd        (msgid, begin + convertSizeInBytes<8,8>(nBytes));
+        setMessageDestination(msgid, for_rank);
 
-        memcpy( &pMessageSection_[ibegin], bytes, nBytes );
+        memcpy( &pBuffer_[begin], bytes, nBytes );
 
-        ++(*nMessages_);
+     // Increment number of messages.
+        setNMessages(nMessages(pBuffer_) + 1);
 
         return msgid;
     }
@@ -129,23 +136,20 @@
     MessageBox::str() const
     {
         std::stringstream ss;
-        ss<<"MessageBuffer, nMessages = "<< nMessages()<<'\n';
-        for( int i=0; i<nMessages(); ++i )
+        ss<<"MessageBuffer, nMessages = "<< nMessages(pBuffer_)<<'\n';
+        for( int i=0; i<nMessages(pBuffer_); ++i )
         {
-            ss<<"\nmessage "<<i<<" for rank "<<rank(i);
-            Index_t j0 = beginIndex(i);
-            for( Index_t j=j0; j<endIndex(i); ++j) {
-                Index_t val_int = pMessageSection_[j];
-                double  val_dbl = (reinterpret_cast<double*>(pMessageSection_))[j];
-                ss<<"\n  ["<<j-j0<<"] int = "<<val_int<<", dbl = "<<val_dbl;
+            ss<<"\nmessage "<<i<<" for rank "<<messageDestination(i,pBuffer_);
+            Index_t j0 = messageBegin(i,pBuffer_);
+            for( Index_t j=j0; j<messageEnd(i,pBuffer_); ++j) {
+                Index_t val_Index_t = pBuffer_[j];
+                double  val_double  = (reinterpret_cast<double*>(pBuffer_))[j];
+                ss<<"\n  ["<<j-j0<<"] int = "<<val_Index_t<<", dbl = "<<val_double;
             }
         }
         ss<<'\n';
         return ss.str();
     }
-
-    int MessageBox:: rank () const { return Communicator(comm_).rank(); }
-    int MessageBox::nranks() const { return Communicator(comm_).size(); }
 
 
     Index_t*
@@ -155,8 +159,8 @@
      // appropriately sized in the MessageBox ctor.
         int success =
         MPI_Get
-          ( messageHeaders_[rank].data() // buffer to store the elements to get
-          , headerSize_()                // size of that buffer (number of elements0
+          ( receivedMessageHeaders_[rank].data() // buffer to store the elements to get
+          , headerSize_()                // size of that buffer (number of elements)
           , MPI_LONG_LONG_INT            // type of that buffer
           , rank                         // process rank to get from (target)
           , 0                            // offset in targets window
@@ -169,7 +173,7 @@
             throw std::runtime_error(errmsg);
         }
 
-        return messageHeaders_[rank].data();
+        return receivedMessageHeaders_[rank].data();
     }
 
     void
@@ -188,15 +192,15 @@
     headersStr() const
     {
         std::stringstream ss;
-        Communicator comm = Communicator(comm_);
         ss<<comm_.str()<<"\nheaders:";
         for( int r=0; r<comm_.size(); ++r) {
             if( r != comm_.rank() ) {// skip own rank
-                Index_t nMessages = messageHeaders_[r][0];
+                Index_t nMessages = receivedMessageHeaders_[r][0];
                 ss<<"\n  from rank "<<r<<" : "<<nMessages<<" messages";
-                Index_t const * pHeaderSection = &messageHeaders_[r][2];
+                Index_t const * buffer = receivedMessageHeaders_[r].data();
                 for( Index_t m=0; m<nMessages; ++m ) {
-                    ss<<"\n    message "<<m<<" for rank "<<pHeaderSection[2*m]<<" ["<<pHeaderSection[2*m-1]<<','<<pHeaderSection[2*m+1]<<'[';
+                    ss<<"\n    message "<<m<<" for rank "<<messageDestination(m,buffer)
+                      <<" ["<<messageBegin(m,buffer)<<','<<messageEnd(m,buffer)<<'[';
                 }
             }
         }
@@ -213,26 +217,24 @@
         {// open an epoch
             Epoch epoch(*this,0);
             getHeaders();
-            std::cout<<headersStr()<<std::endl;
+//            std::cout<<headersStr()<<std::endl;
 
             for( int r=0; r<comm_.size(); ++r) {
                 if( r != comm_.rank() ) {// skip own rank
-                    Index_t nMessages = messageHeaders_[r][0];
-                    Index_t const * pHeaderSection = &messageHeaders_[r][2];
-                    for( Index_t m=0; m<nMessages; ++m ) {
-                        if( pHeaderSection[2*m] == comm_.rank() ) {// message is for me
-                            Index_t const begin = pHeaderSection[2*m-1];
-                            Index_t const end   = pHeaderSection[2*m+1];
-                            Index_t const n = end - begin;
-                            std::vector<Index_t> buffer( static_cast<size_t>(n) );
+                    Index_t const * headers = receivedMessageHeaders_[r].data();
+                    for( Index_t m=0; m<nMessages(headers); ++m ) {
+                        if( messageDestination(m,headers) == comm_.rank() ) {// message is for me
+
+                            Index_t const message_size = messageSize(m,headers);
+                            std::vector<Index_t> message( static_cast<size_t>(message_size) );
                             int success =
                             MPI_Get
-                              ( buffer.data()           // buffer to store the elements to get
-                              , n                       // size of that buffer (number of elements0
+                              ( message.data()          // buffer to store the elements to get
+                              , message_size            // size of that buffer (number of elements0
                               , MPI_LONG_LONG_INT       // type of that buffer
                               , r                       // process rank to get from (target)
-                              , 2 + 2*maxmsgs_ + begin  // offset in targets window
-                              , n                       // number of elements to get
+                              , messageBegin(m,headers) // offset in targets window
+                              , message_size            // number of elements to get
                               , MPI_LONG_LONG_INT       // data type of that buffer
                               , window_                 // window
                               );
@@ -240,7 +242,7 @@
                                 std::string errmsg = comm_.str() + "MPI_get failed (getting message).";
                                 throw std::runtime_error(errmsg);
                             }
-                            messages.push_back(buffer);
+                            messages.push_back(message);
                         }
                     }
                 }

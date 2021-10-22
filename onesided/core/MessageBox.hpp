@@ -37,27 +37,32 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
           );
         ~MessageBox();
 
-        Index_t nMessages() const;
-
         MPI_Win window() { return window_; }
 
      // Add a message <bytes>, of length <nbytes> for rank <for_rank>
         Index_t addMessage(Index_t for_rank, void* bytes, size_t nBytes);
 
-        Index_t       rank(Index_t msgid) const { return pHeaderSection_[msgid*2  ]; }
-        Index_t   endIndex(Index_t msgid) const { return pHeaderSection_[msgid*2+1]; }
-        Index_t beginIndex(Index_t msgid) const { return pHeaderSection_[msgid*2-1]; }
+     // read message headers
+     // the default buffer is the buffer in the window. A different buffer can
+     // be used for reading message headers obtained via MPI_Get (getHeaderFrom
+        Index_t nMessages          (               void const * buffer) const;
+        Index_t maxMessages        (               void const * buffer) const;
+        int messageDestination     (Index_t msgid, void const * buffer) const;
+        Index_t messageBegin       (Index_t msgid, void const * buffer) const;
+        Index_t messageEnd         (Index_t msgid, void const * buffer) const;
+        Index_t messageSize        (Index_t msgid, void const    * buffer) const;
+//        Index_t messageSizeInBytes (Index_t msgid, void * buffer) const;
 
-        Index_t&       rank(Index_t msgid) { return pHeaderSection_[msgid*2  ]; }
-        Index_t&   endIndex(Index_t msgid) { return pHeaderSection_[msgid*2+1]; }
-        Index_t& beginIndex(Index_t msgid) { return pHeaderSection_[msgid*2-1]; }
+        void setNMessages          (               Index_t n);
+        void setMessageDestination (Index_t msgid, Index_t messageDestination);
+        void setMessageEnd         (Index_t msgid, Index_t messageEnd);
+
+        inline Index_t getNMessages() const { return pBuffer_[0]; }
 
      // header and messages in a readable format, not generic for all message types though
         std::string str() const;
 
-     // access the MPI communicator:
-        int rank() const;
-        int nranks() const;
+     //
 
      // Get header from some process (to be called inside an epoch)
         Index_t* getHeaderFrom(int rank);
@@ -68,16 +73,17 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
       private:
         Communicator comm_;
         MPI_Win  window_;
-        Index_t  maxmsgs_;
-        void*    pBuffer_;
-        Index_t* nMessages_;
-        Index_t* pHeaderSection_;
-        Index_t* pMessageSection_;
+        Index_t* pBuffer_;
+        Index_t bufferSize_; // in dwords
+//        Index_t* nMessages_;
+//        Index_t* pHeaderSection_;
+//        Index_t* pMessageSection_;
         Index_t nMessageDWords_;
 
-        std::vector<std::vector<Index_t>> messageHeaders_;
+        std::vector<std::vector<Index_t>> receivedMessageHeaders_;
 
-        size_t headerSize_() const { return 2 + 2*maxmsgs_; }
+        inline Index_t  headerSize_() const { return pBuffer_[1]; }
+        inline Index_t& headerSize_()       { return pBuffer_[1]; }
     };
 
  //------------------------------------------------------------------------------------------------

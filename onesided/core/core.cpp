@@ -454,7 +454,7 @@ PYBIND11_MODULE(core, m)
     m.def("tryout4", &tryout4, "");
     py::class_<MessageBox>(m, "MessageBox")
         .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
-        .def("nMessages", &MessageBox::nMessages)
+        .def("nMessages", &MessageBox::getNMessages)
         .def("str",&MessageBox::str)
         .def("getMessages", &MessageBox::getMessages)
         ;
