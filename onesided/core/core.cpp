@@ -30,7 +30,7 @@ void hello()
     int world_size;
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
- // Get the rank of the process
+ // Get the rank of the handle
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
@@ -101,12 +101,12 @@ void tryout1()
     for( int i=0; i<4; ++i) getbfr[i] = -1;
 
     if (comm.rank() == 0) {
-    // Fetch the value from the MPI process 1 window
+    // Fetch the value from the MPI handle 1 window
     MPI_Get
       ( getbfr // buffer to store the elements to get
       , 2       // size of that buffer
       , MPI_INT // type of that buffer
-      , 1       // process rank to get from (target)
+      , 1       // handle rank to get from (target)
       , 1       // offset in targets window
       , 2      // number of elements to get
       , MPI_INT // data type of that buffer
@@ -118,7 +118,7 @@ void tryout1()
     MPI_Win_fence(0, win);
 
     if (comm.rank() == 0) {
-        printf("\n[MPI process 0] Value fetched from MPI process 1 window:");
+        printf("\n[MPI handle 0] Value fetched from MPI handle 1 window:");
         for( int i=0; i<4; ++i ) {
             std::cout << comm.str() << i << "->" << getbfr[i] << std::endl;
         }
@@ -240,7 +240,7 @@ class MessageBuffer
           ( getbfr // buffer to store the elements to get
           , 1 + 3*maxmsgs_
           , MPI_INT // type of that buffer
-          , target  // process rank to get from (target)
+          , target  // handle rank to get from (target)
           , 0       // offset in targets window
           , 1 + 13*maxmsgs_       // number of elements to get
           , MPI_INT // data type of that buffer
@@ -253,7 +253,7 @@ class MessageBuffer
           ( getbfr // buffer to store the elements to get
           , 10
           , MPI_INT // type of that buffer
-          , target  // process rank to get from (target)
+          , target  // handle rank to get from (target)
           , 10 + 10*iMsg       // offset in targets window
           , 10       // number of elements to get
           , MPI_INT // data type of that buffer
@@ -276,7 +276,7 @@ void tryout2()
     Communicator comm;
     std::cout << comm.str() << "tryout2" << std::endl;
     if( comm.size() != 1 ) {
-        std::cout<<"Expecting 1 process."<<std::endl;
+        std::cout<<"Expecting 1 handle."<<std::endl;
         return;
     }
  // Create the window
@@ -316,12 +316,12 @@ void tryout3()
     int getbfr[wsize] = {-2};
 
     if (comm.rank() == 1)
-    {// Fetch the header from the MPI process 1 window
+    {// Fetch the header from the MPI handle 1 window
         MPI_Get
           ( getbfr // buffer to store the elements to get
           , 10       // size of that buffer
           , MPI_INT // type of that buffer
-          , 0       // process rank to get from (target)
+          , 0       // handle rank to get from (target)
           , 0       // offset in targets window
           , 10      // number of elements to get
           , MPI_INT // data type of that buffer
@@ -465,109 +465,154 @@ void reverse_stringstream()
     std::cout<<i<<std::endl;
 }
 
-template<typename T> struct is_array_like { static int const value = 0; };
-template<> struct is_array_like<std::string> { static int const value = 1; };
-template<typename T> struct is_array_like<std::vector<T>> { static int const value = 1; };
+ //---------------------------------------------------------------------------------------------------------------------
+ // generic version for encoding and decoding messages with the same function calls
+ //---------------------------------------------------------------------------------------------------------------------
+    int const not_implemented =-1;
+    int const built_in_type   = 0;
+    int const array_like_type = 1;
 
-template<typename T, int> struct Writer {};
-template<typename T> struct Writer<T,0> {// not array like
-    typedef Writer<T,0> This_type;
-    static
-    void write(T const & t, std::stringstream& ss) {
-        std::cout<<"write not is_array_like"<<std::endl;
-        ss.write( reinterpret_cast<std::ostringstream::char_type const *>(&t), sizeof(T) );
-    }
-    static
-    void read(T & t, std::stringstream& ss) {
-        std::cout<<"read not is_array_like"<<std::endl;
-        ss.read( reinterpret_cast<std::ostringstream::char_type *>(&t), sizeof(T) );
-    }
-    static void process(T const & t, std::stringstream& ss, char mode) {
-        std::cout<<"process not is_array_like, mode="<<mode<<std::endl;
-        if (mode == 'w') {
-            This_type::write(t,ss);
-        } else if (mode == 'r') {
-            This_type::read(const_cast<T&>(t),ss);
-        }
-    }
-    static void process(T& t, std::stringstream& ss, char mode) {
-        std::cout<<"process not is_array_like, mode="<<mode<<std::endl;
-        if (mode == 'w') {
-            This_type::write(const_cast<T const &>(t),ss);
-        } else if (mode == 'r') {
-            This_type::read(t,ss);
-        } else {
-            throw std::invalid_argument("Mode should be 'r' (read) or 'w' (write).");
-        }
-    }
-};
-template<typename T> struct Writer<T,1> {// is array like
- // C++17 required.
-    typedef Writer<T,1> This_type;
-    static
-    void write(T const & t, std::stringstream& ss) {
-        std::cout<<"write is_array_like"<<std::endl;
-        size_t const sz = t.size();
-        std::cout<<"write size: "<<sz<<std::endl;
-        ss.write(reinterpret_cast<std::stringstream::char_type const *>(&sz), sizeof(size_t));
-        ss.write(reinterpret_cast<std::stringstream::char_type const *>(t.data()), sz*sizeof(typename T::value_type));
-        std::cout<<"write done "<<std::endl;
-    }
-    static
-    void read(T & t, std::stringstream& ss) {
-        std::cout<<"read is_array_like"<<std::endl;
-        size_t sz=0;
-        ss.read(reinterpret_cast<std::ostringstream::char_type*>(&sz), sizeof(size_t));
-        std::cout<<"read.size "<<sz<<std::endl;
-        t.resize(sz);
-        std::cout<<"read size: "<<t.size()<<std::endl;
-        ss.read(reinterpret_cast<std::ostringstream::char_type*>(t.data()), sz*sizeof(typename T::value_type));
-        std::cout<<"read done"<<std::endl;
-    }
-    static void process(T const & t, std::stringstream& ss, char mode) {
-        std::cout<<"process is_array_like, mode="<<mode<<std::endl;
-        if (mode == 'w') {
-            This_type::write(t,ss);
-        } else if (mode == 'r') {
-            This_type::read(const_cast<T&>(t),ss);
-        } else {
-            throw std::invalid_argument ("Mode should be 'r' (read) or 'w' (write).");
-        }
-    }
-    static void process(T& t, std::stringstream& ss, char mode) {
-        std::cout<<"process is_array_like, mode="<<mode<<std::endl;
-        if (mode == 'w') {
-            This_type::write(const_cast<T const &>(t),ss);
-        } else if (mode == 'r') {
-            This_type::read(t,ss);
-        }
-    }
-};
+    template<typename T> struct handler_kind {
+        static int const value = not_implemented;
+    };
 
-class MessageStream
-{
-  public:
-    MessageStream() {}
+    template<> struct handler_kind<int>                      { static int const value = built_in_type; };
+    template<> struct handler_kind<unsigned int>             { static int const value = built_in_type; };
+    template<> struct handler_kind<Index_t>                  { static int const value = built_in_type; };
+    template<> struct handler_kind<float>                    { static int const value = built_in_type; };
+    template<> struct handler_kind<double>                   { static int const value = built_in_type; };
+    template<typename T> struct handler_kind<std::vector<T>> { static int const value = array_like_type; };
+    template<> struct handler_kind<std::string>              { static int const value = array_like_type; };// C++17 required
 
-    template<typename T>
-    void
-    write(T const & t) {
-        Writer<T,is_array_like<T>::value>::write(t, ss_);
-    }
-    template<typename T>
-    void
-    read(T & t) {
-        Writer<T,is_array_like<T>::value>::read(t, ss_);
-    }
-    template<typename T>
-    void
-    process(T & t, char mode) {
-        Writer<T,is_array_like<T>::value>::process(t, ss_, mode);
-    }
-    std::string str() const { return ss_.str(); }
-  private:
-    std::stringstream ss_;
-};
+ //---------------------------------------------------------------------------------------------------------------------
+ // MessageHandler class
+ //---------------------------------------------------------------------------------------------------------------------
+ // only specialisations are functional.
+    template<typename T, int> struct MessagaHandler;
+
+ //---------------------------------------------------------------------------------------------------------------------
+ // MessageHandler specialisation for selected built-in types
+ //---------------------------------------------------------------------------------------------------------------------
+    template<typename T> struct MessagaHandler<T,built_in_type>
+    {
+        typedef MessagaHandler<T,built_in_type> This_type;
+
+        static
+        void write(T const & t, std::stringstream& ss) {
+            std::cout<<"write not is_array_like"<<std::endl;
+            ss.write( reinterpret_cast<std::ostringstream::char_type const *>(&t), sizeof(T) );
+        }
+        static
+        void read(T & t, std::stringstream& ss) {
+            std::cout<<"read not is_array_like"<<std::endl;
+            ss.read( reinterpret_cast<std::ostringstream::char_type *>(&t), sizeof(T) );
+        }
+        static void handle(T const & t, std::stringstream& ss, char mode) {
+            std::cout<<"handle not is_array_like, mode="<<mode<<std::endl;
+            if (mode == 'w') {
+                This_type::write(t,ss);
+            } else if (mode == 'r') {
+                This_type::read(const_cast<T&>(t),ss);
+            }
+        }
+        static void handle(T& t, std::stringstream& ss, char mode) {
+            std::cout<<"handle not is_array_like, mode="<<mode<<std::endl;
+            if (mode == 'w') {
+                This_type::write(const_cast<T const &>(t),ss);
+            } else if (mode == 'r') {
+                This_type::read(t,ss);
+            } else {
+                throw std::invalid_argument("Mode should be 'r' (read) or 'w' (write).");
+            }
+        }
+    };
+
+ //---------------------------------------------------------------------------------------------------------------------
+ // MessageHandler specialisation for selected array-like types
+ //---------------------------------------------------------------------------------------------------------------------
+ // class T must have
+ //   - T::value_type, the type of the array elements
+ // T objects t must have
+ //   - t.data() returning T::value_type* or T::value_type const*, pointer to begin of te data buffer
+ //   - t.size() returning size_t, number of array elements
+ // This is ok for std::vector<T> with T a built-in type , std::string
+    template<typename T> struct MessagaHandler<T,array_like_type>
+    {
+        typedef MessagaHandler<T,array_like_type> This_type;
+     // write a T object
+        static
+        void write(T const & t, std::stringstream& ss) {
+            std::cout<<"write is_array_like"<<std::endl;
+            size_t const sz = t.size();
+            std::cout<<"write size: "<<sz<<std::endl;
+            ss.write(reinterpret_cast<std::stringstream::char_type const *>(&sz), sizeof(size_t));
+            ss.write(reinterpret_cast<std::stringstream::char_type const *>(t.data()), sz*sizeof(typename T::value_type));
+            std::cout<<"write done "<<std::endl;
+        }
+        
+     // read a T object
+        static
+        void read(T & t, std::stringstream& ss) {
+            std::cout<<"read is_array_like"<<std::endl;
+            size_t sz=0;
+            ss.read(reinterpret_cast<std::ostringstream::char_type*>(&sz), sizeof(size_t));
+            std::cout<<"read.size "<<sz<<std::endl;
+            t.resize(sz);
+            std::cout<<"read size: "<<t.size()<<std::endl;
+            ss.read(reinterpret_cast<std::ostringstream::char_type*>(t.data()), sz*sizeof(typename T::value_type));
+            std::cout<<"read done"<<std::endl;
+        }
+        
+     // write or read a T object, select using mode argument
+        static void handle(T const & t, std::stringstream& ss, char mode) {
+            std::cout<<"handle is_array_like, mode="<<mode<<std::endl;
+            if (mode == 'w') {
+                This_type::write(t,ss);
+            } else if (mode == 'r') {
+                This_type::read(const_cast<T&>(t),ss);
+            } else {
+                throw std::invalid_argument ("Mode should be 'r' (read) or 'w' (write).");
+            }
+        }
+        static void handle(T& t, std::stringstream& ss, char mode) {
+            std::cout<<"handle is_array_like, mode="<<mode<<std::endl;
+            if (mode == 'w') {
+                This_type::write(const_cast<T const &>(t),ss);
+            } else if (mode == 'r') {
+                This_type::read(t,ss);
+            }
+        }
+    };
+
+ //---------------------------------------------------------------------------------------------------------------------
+ // classMessageStream
+ //---------------------------------------------------------------------------------------------------------------------
+   class MessageStream
+    {
+      public:
+        MessageStream() {}
+    
+     // write T object
+        template<typename T>
+        void
+        write(T const & t) {
+            MessagaHandler<T,handler_kind<T>::value>::write(t, ss_);
+        }
+     // read T object
+        template<typename T>
+        void
+        read(T & t) {
+            MessagaHandler<T,handler_kind<T>::value>::read(t, ss_);
+        }
+        template<typename T>
+        void
+        handle(T & t, char mode) {
+            MessagaHandler<T,handler_kind<T>::value>::handle(t, ss_, mode);
+        }
+        std::string str() const { return ss_.str(); }
+      private:
+        std::stringstream ss_;
+    };
 
 void reverse_stringstream_2()
 {
@@ -582,11 +627,11 @@ void reverse_stringstream_2()
     std::cout<<"]\n";
 
     std::cout<<'s'<<std::endl;
-    ms.process<std::string>(s,'w');
+    ms.handle(s,'w');
     std::cout<<'i'<<std::endl;
-    ms.process<int>(i,'w');
+    ms.handle(i,'w');
     std::cout<<'d'<<std::endl;
-    ms.process<std::vector<double>>(d,'w');
+    ms.handle(d,'w');
 
     std::string written = ms.str();
     std::cout<<"serialized: |"<<written<<'|'<<std::endl;
@@ -594,9 +639,9 @@ void reverse_stringstream_2()
     s = "01234";
     i = 0;
     d.clear();
-    ms.process<std::string>(s,'r');
-    ms.process<int>(i,'r');
-    ms.process<std::vector<double>>(d,'r');
+    ms.handle(s,'r');
+    ms.handle(i,'r');
+    ms.handle(d,'r');
 
     std::cout<<"deserialized:"<<std::endl;
     std::cout<<s<<std::endl;
@@ -604,7 +649,6 @@ void reverse_stringstream_2()
     std::cout<<"[ ";
     for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
     std::cout<<"]\n";
-
 }
 
 PYBIND11_MODULE(core, m)
