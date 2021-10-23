@@ -68,13 +68,15 @@ def test_mpi_get_messages():
 
     mb.getMessages()
 
+def test_reverse_stringstream():
+    onesided.core.reverse_stringstream_2()
 
 #===============================================================================
 # The code below is for debugging a particular test in eclipse/pydev.
 # (normally all tests are run with pytest)
 #===============================================================================
 if __name__ == "__main__":
-    the_test_you_want_to_debug = test_mpi_get_messages
+    the_test_you_want_to_debug = test_reverse_stringstream
 
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()

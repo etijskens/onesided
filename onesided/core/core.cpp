@@ -442,6 +442,171 @@ add_float_array(MessageBox& mb, Index_t for_rank, py::array_t<double> a)
     return msgid;
 }
 
+void reverse_stringstream()
+{
+    std::stringstream ss;
+    std::string s("hello");
+    int i=5;
+    std::cout<<s<<std::endl;
+    std::cout<<i<<std::endl;
+
+    ss.write(s.data(), s.size());
+    ss.write(reinterpret_cast<char*>(&i), sizeof(int));
+    std::string written = ss.str();
+    std::cout<<"serialized: |"<<written<<'|'<<std::endl;
+
+    s = "01234";
+    i = 0;
+    ss.read(const_cast<char*>(s.data()), s.size());
+    ss.read(reinterpret_cast<char*>(&i), sizeof(int));
+
+    std::cout<<"deserialized:"<<std::endl;
+    std::cout<<s<<std::endl;
+    std::cout<<i<<std::endl;
+}
+
+template<typename T> struct is_array_like { static int const value = 0; };
+template<> struct is_array_like<std::string> { static int const value = 1; };
+template<typename T> struct is_array_like<std::vector<T>> { static int const value = 1; };
+
+template<typename T, int> struct Writer {};
+template<typename T> struct Writer<T,0> {// not array like
+    typedef Writer<T,0> This_type;
+    static
+    void write(T const & t, std::stringstream& ss) {
+        std::cout<<"write not is_array_like"<<std::endl;
+        ss.write( reinterpret_cast<std::ostringstream::char_type const *>(&t), sizeof(T) );
+    }
+    static
+    void read(T & t, std::stringstream& ss) {
+        std::cout<<"read not is_array_like"<<std::endl;
+        ss.read( reinterpret_cast<std::ostringstream::char_type *>(&t), sizeof(T) );
+    }
+    static void process(T const & t, std::stringstream& ss, char mode) {
+        std::cout<<"process not is_array_like, mode="<<mode<<std::endl;
+        if (mode == 'w') {
+            This_type::write(t,ss);
+        } else if (mode == 'r') {
+            This_type::read(const_cast<T&>(t),ss);
+        }
+    }
+    static void process(T& t, std::stringstream& ss, char mode) {
+        std::cout<<"process not is_array_like, mode="<<mode<<std::endl;
+        if (mode == 'w') {
+            This_type::write(const_cast<T const &>(t),ss);
+        } else if (mode == 'r') {
+            This_type::read(t,ss);
+        } else {
+            throw std::invalid_argument("Mode should be 'r' (read) or 'w' (write).");
+        }
+    }
+};
+template<typename T> struct Writer<T,1> {// is array like
+ // C++17 required.
+    typedef Writer<T,1> This_type;
+    static
+    void write(T const & t, std::stringstream& ss) {
+        std::cout<<"write is_array_like"<<std::endl;
+        size_t const sz = t.size();
+        std::cout<<"write size: "<<sz<<std::endl;
+        ss.write(reinterpret_cast<std::stringstream::char_type const *>(&sz), sizeof(size_t));
+        ss.write(reinterpret_cast<std::stringstream::char_type const *>(t.data()), sz*sizeof(typename T::value_type));
+        std::cout<<"write done "<<std::endl;
+    }
+    static
+    void read(T & t, std::stringstream& ss) {
+        std::cout<<"read is_array_like"<<std::endl;
+        size_t sz=0;
+        ss.read(reinterpret_cast<std::ostringstream::char_type*>(&sz), sizeof(size_t));
+        std::cout<<"read.size "<<sz<<std::endl;
+        t.resize(sz);
+        std::cout<<"read size: "<<t.size()<<std::endl;
+        ss.read(reinterpret_cast<std::ostringstream::char_type*>(t.data()), sz*sizeof(typename T::value_type));
+        std::cout<<"read done"<<std::endl;
+    }
+    static void process(T const & t, std::stringstream& ss, char mode) {
+        std::cout<<"process is_array_like, mode="<<mode<<std::endl;
+        if (mode == 'w') {
+            This_type::write(t,ss);
+        } else if (mode == 'r') {
+            This_type::read(const_cast<T&>(t),ss);
+        } else {
+            throw std::invalid_argument ("Mode should be 'r' (read) or 'w' (write).");
+        }
+    }
+    static void process(T& t, std::stringstream& ss, char mode) {
+        std::cout<<"process is_array_like, mode="<<mode<<std::endl;
+        if (mode == 'w') {
+            This_type::write(const_cast<T const &>(t),ss);
+        } else if (mode == 'r') {
+            This_type::read(t,ss);
+        }
+    }
+};
+
+class MessageStream
+{
+  public:
+    MessageStream() {}
+
+    template<typename T>
+    void
+    write(T const & t) {
+        Writer<T,is_array_like<T>::value>::write(t, ss_);
+    }
+    template<typename T>
+    void
+    read(T & t) {
+        Writer<T,is_array_like<T>::value>::read(t, ss_);
+    }
+    template<typename T>
+    void
+    process(T & t, char mode) {
+        Writer<T,is_array_like<T>::value>::process(t, ss_, mode);
+    }
+    std::string str() const { return ss_.str(); }
+  private:
+    std::stringstream ss_;
+};
+
+void reverse_stringstream_2()
+{
+    MessageStream ms;
+    std::string s("helloworld");
+    int i=5;
+    std::vector<double> d = {.0,.1,.2,.3,.4};
+    std::cout<<s<<std::endl;
+    std::cout<<i<<std::endl;
+    std::cout<<"[ ";
+    for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
+    std::cout<<"]\n";
+
+    std::cout<<'s'<<std::endl;
+    ms.process<std::string>(s,'w');
+    std::cout<<'i'<<std::endl;
+    ms.process<int>(i,'w');
+    std::cout<<'d'<<std::endl;
+    ms.process<std::vector<double>>(d,'w');
+
+    std::string written = ms.str();
+    std::cout<<"serialized: |"<<written<<'|'<<std::endl;
+
+    s = "01234";
+    i = 0;
+    d.clear();
+    ms.process<std::string>(s,'r');
+    ms.process<int>(i,'r');
+    ms.process<std::vector<double>>(d,'r');
+
+    std::cout<<"deserialized:"<<std::endl;
+    std::cout<<s<<std::endl;
+    std::cout<<i<<std::endl;
+    std::cout<<"[ ";
+    for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
+    std::cout<<"]\n";
+
+}
+
 PYBIND11_MODULE(core, m)
 {// optional module doc-string
     m.doc() = "pybind11 core plugin"; // optional module docstring
@@ -460,4 +625,6 @@ PYBIND11_MODULE(core, m)
         ;
     m.def("add_int_array", &add_int_array);
     m.def("add_float_array", &add_float_array);
+    m.def("reverse_stringstream",&reverse_stringstream);
+    m.def("reverse_stringstream_2",&reverse_stringstream_2);
 }
