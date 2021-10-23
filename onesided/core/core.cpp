@@ -465,6 +465,7 @@ void reverse_stringstream()
     std::cout<<i<<std::endl;
 }
 
+/*
  //---------------------------------------------------------------------------------------------------------------------
  // generic version for encoding and decoding messages with the same function calls
  //---------------------------------------------------------------------------------------------------------------------
@@ -604,15 +605,18 @@ void reverse_stringstream()
         read(T & t) {
             MessagaHandler<T,handler_kind<T>::value>::read(t, ss_);
         }
+     // write or read T object, select with mode argument
         template<typename T>
         void
         handle(T & t, char mode) {
             MessagaHandler<T,handler_kind<T>::value>::handle(t, ss_, mode);
         }
+     // get the message as e string to put it to the window
         std::string str() const { return ss_.str(); }
       private:
         std::stringstream ss_;
     };
+*/
 
 void reverse_stringstream_2()
 {
