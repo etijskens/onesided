@@ -113,7 +113,6 @@
     }
 
 
-
     Index_t
     MessageBox::
     addMessage(Index_t for_rank, void* bytes, size_t nBytes)
@@ -208,28 +207,29 @@
         return ss.str();
     }
 
-
     void
     MessageBox::
     getMessages()
     {
-        std::vector<std::vector<Index_t>> messages; // for now we provide for only 10 messages
+        messages.clear();
         {// open an epoch
             Epoch epoch(*this,0);
             getHeaders();
-//            std::cout<<headersStr()<<std::endl;
 
-            for( int r=0; r<comm_.size(); ++r) {
-                if( r != comm_.rank() ) {// skip own rank
+            for( int r=0; r<comm_.size(); ++r)
+            {
+                if( r != comm_.rank() )
+                {// skip own rank
                     Index_t const * headers = receivedMessageHeaders_[r].data();
-                    for( Index_t m=0; m<nMessages(headers); ++m ) {
-                        if( messageDestination(m,headers) == comm_.rank() ) {// message is for me
-
+                    for( Index_t m=0; m<nMessages(headers); ++m )
+                    {
+                        if( messageDestination(m,headers) == comm_.rank() )
+                        {// This is a message for me
                             Index_t const message_size = messageSize(m,headers);
-                            std::vector<Index_t> message( static_cast<size_t>(message_size) );
+                            msgbuf_type message_buffer( static_cast<std::string::size_type>(message_size*sizeof(Index_t)), '\0' );
                             int success =
                             MPI_Get
-                              ( message.data()          // buffer to store the elements to get
+                              ( message_buffer.data()   // buffer to store the elements to get
                               , message_size            // size of that buffer (number of elements0
                               , MPI_LONG_LONG_INT       // type of that buffer
                               , r                       // process rank to get from (target)
@@ -242,7 +242,7 @@
                                 std::string errmsg = comm_.str() + "MPI_get failed (getting message).";
                                 throw std::runtime_error(errmsg);
                             }
-                            messages.push_back(message);
+                            messages.push_back(message_buffer);
                         }
                     }
                 }
@@ -296,37 +296,24 @@
     template<> struct handler_kind<std::string>              { static int const value = array_like_type; };// C++17 required
 
  //---------------------------------------------------------------------------------------------------------------------
- // MessageHandler class
+ // MessageStreamHelper class
+ // This class does the work of the MessageStream class
  //---------------------------------------------------------------------------------------------------------------------
- // only specialisations are functional.
-    template<typename T, int> struct MessagaHandler;
+ // Only specialisations are functional.
+    template<typename T, int> class MessageStreamHelper;
 
  //---------------------------------------------------------------------------------------------------------------------
- // MessageHandler specialisation for selected built-in types
+ // MessageStreamHelper specialisation for selected built-in types
  //---------------------------------------------------------------------------------------------------------------------
-    template<typename T> struct MessagaHandler<T,built_in_type>
+    template<typename T>
+    class MessageStreamHelper<T,built_in_type>
     {
-        typedef MessagaHandler<T,built_in_type> This_type;
-
-        static
-        void write(T const & t, std::stringstream& ss) {
-            std::cout<<"write not is_array_like"<<std::endl;
-            ss.write( reinterpret_cast<std::ostringstream::char_type const *>(&t), sizeof(T) );
-        }
-        static
-        void read(T & t, std::stringstream& ss) {
-            std::cout<<"read not is_array_like"<<std::endl;
-            ss.read( reinterpret_cast<std::ostringstream::char_type *>(&t), sizeof(T) );
-        }
-        static void handle(T const & t, std::stringstream& ss, char mode) {
-            std::cout<<"handle not is_array_like, mode="<<mode<<std::endl;
-            if (mode == 'w') {
-                This_type::write(t,ss);
-            } else if (mode == 'r') {
-                This_type::read(const_cast<T&>(t),ss);
-            }
-        }
-        static void handle(T& t, std::stringstream& ss, char mode) {
+        typedef MessageStreamHelper<T,built_in_type> This_type;
+    public:
+     // Write or read a T object, select using mode argument
+     // Even when mode == 'w', t must be non-const.
+        static void handle(T& t, std::stringstream& ss, char mode)
+        {
             std::cout<<"handle not is_array_like, mode="<<mode<<std::endl;
             if (mode == 'w') {
                 This_type::write(const_cast<T const &>(t),ss);
@@ -336,10 +323,25 @@
                 throw std::invalid_argument("Mode should be 'r' (read) or 'w' (write).");
             }
         }
+        
+    private:
+        static
+        void write(T const & t, std::stringstream& ss)
+        {
+            std::cout<<"write not is_array_like"<<std::endl;
+            ss.write( reinterpret_cast<std::ostringstream::char_type const *>(&t), sizeof(T) );
+        }
+        
+        static
+        void read(T & t, std::stringstream& ss)
+        {
+            std::cout<<"read not is_array_like"<<std::endl;
+            ss.read( reinterpret_cast<std::ostringstream::char_type *>(&t), sizeof(T) );
+        }
     };
 
  //---------------------------------------------------------------------------------------------------------------------
- // MessageHandler specialisation for selected array-like types
+ // MessageStreamHelper specialisation for selected array-like types
  //---------------------------------------------------------------------------------------------------------------------
  // class T must have
  //   - T::value_type, the type of the array elements
@@ -347,12 +349,28 @@
  //   - t.data() returning T::value_type* or T::value_type const*, pointer to begin of te data buffer
  //   - t.size() returning size_t, number of array elements
  // This is ok for std::vector<T> with T a built-in type , std::string
-    template<typename T> struct MessagaHandler<T,array_like_type>
+    template<typename T> 
+    class MessageStreamHelper<T,array_like_type>
     {
-        typedef MessagaHandler<T,array_like_type> This_type;
+        typedef MessageStreamHelper<T,array_like_type> This_type;
+    public:
+     // Write or read a T object, select using mode argument
+     // Even when mode == 'w', t must be non-const.
+        static void handle(T& t, std::stringstream& ss, char mode)
+        {
+            std::cout<<"handle is_array_like, mode="<<mode<<std::endl;
+            if (mode == 'w') {
+                This_type::write(const_cast<T const &>(t),ss);
+            } else if (mode == 'r') {
+                This_type::read(t,ss);
+            }
+        }
+    
+    private:
      // write a T object
         static
-        void write(T const & t, std::stringstream& ss) {
+        void write(T const & t, std::stringstream& ss)
+        {
             std::cout<<"write is_array_like"<<std::endl;
             size_t const sz = t.size();
             std::cout<<"write size: "<<sz<<std::endl;
@@ -363,7 +381,8 @@
 
      // read a T object
         static
-        void read(T & t, std::stringstream& ss) {
+        void read(T & t, std::stringstream& ss)
+        {
             std::cout<<"read is_array_like"<<std::endl;
             size_t sz=0;
             ss.read(reinterpret_cast<std::ostringstream::char_type*>(&sz), sizeof(size_t));
@@ -373,57 +392,39 @@
             ss.read(reinterpret_cast<std::ostringstream::char_type*>(t.data()), sz*sizeof(typename T::value_type));
             std::cout<<"read done"<<std::endl;
         }
-
-     // write or read a T object, select using mode argument
-        static void handle(T const & t, std::stringstream& ss, char mode) {
-            std::cout<<"handle is_array_like, mode="<<mode<<std::endl;
-            if (mode == 'w') {
-                This_type::write(t,ss);
-            } else if (mode == 'r') {
-                This_type::read(const_cast<T&>(t),ss);
-            } else {
-                throw std::invalid_argument ("Mode should be 'r' (read) or 'w' (write).");
-            }
-        }
-        static void handle(T& t, std::stringstream& ss, char mode) {
-            std::cout<<"handle is_array_like, mode="<<mode<<std::endl;
-            if (mode == 'w') {
-                This_type::write(const_cast<T const &>(t),ss);
-            } else if (mode == 'r') {
-                This_type::read(t,ss);
-            }
-        }
+        
     };
 
  //---------------------------------------------------------------------------------------------------------------------
- // classMessageStream
+ // class MessageStream
  //---------------------------------------------------------------------------------------------------------------------
    class MessageStream
     {
       public:
         MessageStream() {}
 
-     // write T object
-        template<typename T>
-        void
-        write(T const & t) {
-            MessagaHandler<T,handler_kind<T>::value>::write(t, ss_);
-        }
-     // read T object
-        template<typename T>
-        void
-        read(T & t) {
-            MessagaHandler<T,handler_kind<T>::value>::read(t, ss_);
-        }
+//     // write T object
+//        template<typename T>
+//        void
+//        write(T const & t) {
+//            MessageStreamHelper<T,handler_kind<T>::value>::write(t, ss_);
+//        }
+//     // read T object
+//        template<typename T>
+//        void
+//        read(T & t) {
+//            MessageStreamHelper<T,handler_kind<T>::value>::read(t, ss_);
+//        }
      // write or read T object, select with mode argument
         template<typename T>
         void
         handle(T & t, char mode) {
-            MessagaHandler<T,handler_kind<T>::value>::handle(t, ss_, mode);
+            MessageStreamHelper<T,handler_kind<T>::value>::handle(t, ss_, mode);
         }
      // get the message as e string to put it to the window
         std::string str() const { return ss_.str(); }
-      private:
+
+      private: // data members
         std::stringstream ss_;
     };
  //---------------------------------------------------------------------------------------------------------------------

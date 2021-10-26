@@ -17,6 +17,7 @@ namespace py = pybind11;
 #include <iostream>
 #include <sstream>
 #include <exception>
+#include <map>
 
 #include "ArrayInfo.hpp"
 #include "MessageBox.cpp"
@@ -618,9 +619,10 @@ void reverse_stringstream()
     };
 */
 
-void reverse_stringstream_2()
+void reverse_stringstream_1()
 {
     MessageStream ms;
+
     std::string s("helloworld");
     int i=5;
     std::vector<double> d = {.0,.1,.2,.3,.4};
@@ -655,6 +657,155 @@ void reverse_stringstream_2()
     std::cout<<"]\n";
 }
 
+class MessageHandler;
+
+class MessageHandlerFactory
+{
+public:
+    MessageHandlerFactory()
+      : counter_(0)
+    {}
+    ~MessageHandlerFactory()
+    {
+     // destroy als items in the map
+    }
+    
+    template<typename T>
+    T&
+    createMessageHandler(MessageBox& mb)
+    {
+     // mayb assert that T derives from MessageHandler
+        size_t key = counter_++;
+        T* mh = new T(mb, key);
+     // maybe assert whether key does not already exist.
+        registry_[key] = mh;
+        
+        return *mh;
+    }
+
+static MessageHandlerFactory theMessageHandlerFactory;
+
+private:
+    size_t counter_;
+    std::map<size_t,MessageHandler*> registry_;
+};
+
+class MessageHandler
+{
+public:
+    MessageHandler(MessageBox& messageBox, size_t key)
+      : mb_(messageBox)
+      , key_(key)
+    {}
+    virtual bool handle(char mode) = 0;
+    //  Returns false if the message is empty, true otherwise.
+
+    void post(int to_rank)
+    {// construct the message, and put the message in the mpi window
+
+     // Construct the message
+        if( this->handle('w') ) // non-empty message
+        {// Put the message in the window.
+            std::string message = ms_.str();
+            mb_.addMessage(to_rank, message.data(), message.size());
+        }
+    }
+  protected:
+    MessageBox & mb_;
+    size_t key_;
+    MessageStream ms_;
+};
+
+//    void readMyPost()
+//    {
+//        Epoch epoch(mb_); // open epoch on messageBox mb_
+//
+//        for( int rank = 0; rank < mb_.comm().size(); ++rank )
+//        {
+//            if( rank != mb_.comm().rank() )
+//            {// only look for messages from other ranks
+//
+//            }
+//        }
+//
+//     // epoch is closed.
+//    }
+
+class MessageHandlerTest : public MessageHandler
+{
+    friend class MessageHandlerFactory;
+
+ // private ctor, only to be called by theMessageHandlerFactory
+    MessageHandlerTest(MessageBox& messageBox, size_t key)
+      : MessageHandler(messageBox,key)
+    {}
+
+  public:
+    void init(int rank)
+    {
+        s_ = std::string("this is rank ")+std::to_string(rank);
+        i_ = rank;
+        for( size_t i = 0; i < 5; ++i)
+            d_[i] = 10*rank + i*1.1;
+        std::cout<<'['<<rank<<"] "
+                 <<"\n  s = '"<<s_<<"'"
+                 <<"\n  i = "<<i_
+                 <<"\n  d = [ ";
+        for( size_t i=0; i<5; ++i) {
+            std::cout<<d_[i]<<' ';
+        }
+        std::cout<<std::endl;
+    }
+
+    void verify(int rank)
+    {
+        if( rank != 0) {
+            assert( s_ == "helloworld" );
+            assert( i_ = 5 );
+            for( size_t i = 0; i<5; ++i) {
+                assert( d_[i] == (static_cast<double>(i)/10.0));
+            }
+        }
+    }
+    virtual bool handle(char mode)
+    {
+        if( mode == 'w') {
+            std::cout<<"\nwriting s = "<<s_
+                     <<"\nwriting i = "<<i_
+                     <<"\nwriting d = [ ";
+            for( size_t i = 0; i<5; ++i) {
+                std::cout<<d_[i]<<' ';
+            }
+            std::cout<<std::endl;
+        }
+        ms_.handle(s_,mode);
+        ms_.handle(i_,mode);
+        ms_.handle(d_,mode);
+
+        if( mode == 'r') {
+            std::cout<<"\nread s = "<<s_
+                     <<"\nread i = "<<i_
+                     <<"\nread d = [ ";
+            for( size_t i = 0; i<5; ++i) {
+                std::cout<<d_[i]<<' ';
+            }
+            std::cout<<std::endl;
+        }
+        return true;
+    }
+  private:// data
+    std::string s_;
+    int i_;
+    std::vector<double> d_;
+};
+
+void reverse_stringstream_2()
+{
+    MessageBox mb;
+//    MessageHandlerTest mit(mb,0);
+
+}
+
 PYBIND11_MODULE(core, m)
 {// optional module doc-string
     m.doc() = "pybind11 core plugin"; // optional module docstring
@@ -674,5 +825,6 @@ PYBIND11_MODULE(core, m)
     m.def("add_int_array", &add_int_array);
     m.def("add_float_array", &add_float_array);
     m.def("reverse_stringstream",&reverse_stringstream);
+    m.def("reverse_stringstream_1",&reverse_stringstream_1);
     m.def("reverse_stringstream_2",&reverse_stringstream_2);
 }

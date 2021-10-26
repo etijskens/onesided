@@ -70,14 +70,17 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         std::string headersStr() const;
         void getMessages();
 
+        typedef std::string msgbuf_type;
+         // this is not optimal, std::string::resize() (as well as std::vector<>::resize()) initialize the
+         // allocated space, which is a waste of cycles. We need a buffer class which does not initialize
+         // values when allocating memory.
+        std::vector<msgbuf_type> messages;
+
       private:
         Communicator comm_;
         MPI_Win  window_;
         Index_t* pBuffer_;
         Index_t bufferSize_; // in dwords
-//        Index_t* nMessages_;
-//        Index_t* pHeaderSection_;
-//        Index_t* pMessageSection_;
         Index_t nMessageDWords_;
 
         std::vector<std::vector<Index_t>> receivedMessageHeaders_;
@@ -85,6 +88,7 @@ typedef int64_t Index_t; // copied from Primitives/Types/Index.h
         inline Index_t  headerSize_() const { return pBuffer_[1]; }
         inline Index_t& headerSize_()       { return pBuffer_[1]; }
     };
+
 
  //------------------------------------------------------------------------------------------------
     class Epoch
