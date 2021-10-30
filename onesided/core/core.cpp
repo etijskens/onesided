@@ -11,7 +11,6 @@
 
 namespace py = pybind11;
 
-#include <mpi.h>
 
 #include <string>
 #include <iostream>
@@ -19,8 +18,10 @@ namespace py = pybind11;
 #include <exception>
 #include <map>
 
-#include "ArrayInfo.hpp"
+// #include "ArrayInfo.hpp"
 #include "MessageBox.cpp"
+#include "MessageBuffer.cpp"
+#include "MessageHandler.cpp"
 
 void hello()
 {
@@ -48,32 +49,7 @@ void hello()
 //    MPI_Finalize();
 
 }
-
-//class Communicator
-//{
-//  public:
-//    Communicator(MPI_Comm comm=MPI_COMM_WORLD) : comm_(comm)
-//    {
-//        MPI_Comm_size(comm_, &size_);
-//        MPI_Comm_rank(comm_, &rank_);
-//    }
-//
-//    int rank() const {return rank_;}
-//    int size() const {return size_;}
-//    MPI_Comm comm() const {return comm_;}
-//
-//    std::string str() const {
-//        return std::string("[") + std::to_string(rank_) + "/" + std::to_string(size_) + "] ";
-//    }
-//
-//  private:
-//    MPI_Comm comm_;
-//    int rank_
-//      , size_
-//      ;
-//};
-
-
+/*
 void tryout1()
 {
 
@@ -177,10 +153,10 @@ class MessageBuffer
     int  end(int msgid) const { return data_[1 + msgid*3 + 2]; }
     int& end(int msgid)       { return data_[1 + msgid*3 + 2]; }
 
- /* For the moment we assume that
-      - all messages are of equal length, 10 ints
-      - the message is a series of incrementing ints, starting with the destination of the message
-  */
+//   For the moment we assume that
+//       - all messages are of equal length, 10 ints
+//       - the message is a series of incrementing ints, starting with the destination of the message
+ 
     int newMessage(int destination)
     {
         #ifdef VERBOSE
@@ -428,7 +404,7 @@ add_int_array(MessageBox& mb, Index_t for_rank, py::array_t<Index_t> a)
     void * ptrData = a__.data();
     size_t nBytes = a.shape(0)*sizeof(Index_t);
     std::cout<<"nbytes="<<nBytes<<std::endl;
-    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes);
+    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes, -1);
     return msgid;
 }
 
@@ -439,7 +415,7 @@ add_float_array(MessageBox& mb, Index_t for_rank, py::array_t<double> a)
     void * ptrData = a__.data();
     size_t nBytes = a.shape(0)*sizeof(double);
     std::cout<<"nbytes="<<nBytes<<std::endl;
-    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes);
+    Index_t msgid = mb.addMessage(for_rank, ptrData, nBytes, -1);
     return msgid;
 }
 
@@ -465,6 +441,7 @@ void reverse_stringstream()
     std::cout<<s<<std::endl;
     std::cout<<i<<std::endl;
 }
+*/
 
 /*
  //---------------------------------------------------------------------------------------------------------------------
@@ -619,44 +596,7 @@ void reverse_stringstream()
     };
 */
 
-void reverse_stringstream_1()
-{
-    MessageStream ms;
-
-    std::string s("helloworld");
-    int i=5;
-    std::vector<double> d = {.0,.1,.2,.3,.4};
-    std::cout<<s<<std::endl;
-    std::cout<<i<<std::endl;
-    std::cout<<"[ ";
-    for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
-    std::cout<<"]\n";
-
-    std::cout<<'s'<<std::endl;
-    ms.handle(s,'w');
-    std::cout<<'i'<<std::endl;
-    ms.handle(i,'w');
-    std::cout<<'d'<<std::endl;
-    ms.handle(d,'w');
-
-    std::string written = ms.str();
-    std::cout<<"serialized: |"<<written<<'|'<<std::endl;
-
-    s = "01234";
-    i = 0;
-    d.clear();
-    ms.handle(s,'r');
-    ms.handle(i,'r');
-    ms.handle(d,'r');
-
-    std::cout<<"deserialized:"<<std::endl;
-    std::cout<<s<<std::endl;
-    std::cout<<i<<std::endl;
-    std::cout<<"[ ";
-    for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
-    std::cout<<"]\n";
-}
-
+/*
 class MessageHandler;
 
 class MessageHandlerFactory
@@ -672,9 +612,9 @@ public:
     
     template<typename T>
     T&
-    createMessageHandler(MessageBox& mb)
+    create(MessageBox& mb)
     {
-     // mayb assert that T derives from MessageHandler
+     // maybe assert that T derives from MessageHandler
         size_t key = counter_++;
         T* mh = new T(mb, key);
      // maybe assert whether key does not already exist.
@@ -683,12 +623,16 @@ public:
         return *mh;
     }
 
-static MessageHandlerFactory theMessageHandlerFactory;
+    MessageHandler* operator[](size_t key) {
+        return registry_[key];
+    }
 
 private:
     size_t counter_;
     std::map<size_t,MessageHandler*> registry_;
 };
+
+static MessageHandlerFactory theMessageHandlerFactory;
 
 class MessageHandler
 {
@@ -707,29 +651,19 @@ public:
         if( this->handle('w') ) // non-empty message
         {// Put the message in the window.
             std::string message = ms_.str();
-            mb_.addMessage(to_rank, message.data(), message.size());
+            mb_.addMessage(to_rank, message.data(), message.size(), -1);
         }
     }
+
+    void setMessage(std::string const & message) {
+        ms_.set(message);
+    }
+
   protected:
     MessageBox & mb_;
     size_t key_;
     MessageStream ms_;
 };
-
-//    void readMyPost()
-//    {
-//        Epoch epoch(mb_); // open epoch on messageBox mb_
-//
-//        for( int rank = 0; rank < mb_.comm().size(); ++rank )
-//        {
-//            if( rank != mb_.comm().rank() )
-//            {// only look for messages from other ranks
-//
-//            }
-//        }
-//
-//     // epoch is closed.
-//    }
 
 class MessageHandlerTest : public MessageHandler
 {
@@ -741,10 +675,13 @@ class MessageHandlerTest : public MessageHandler
     {}
 
   public:
-    void init(int rank)
+    void init()
     {
-        s_ = std::string("this is rank ")+std::to_string(rank);
+        int rank = mb_.comm().rank();
+        s_ = std::string("message from rank ")+std::to_string(rank);
         i_ = rank;
+        std::cout<<"coucou"<<std::endl;
+        d_.resize(5);
         for( size_t i = 0; i < 5; ++i)
             d_[i] = 10*rank + i*1.1;
         std::cout<<'['<<rank<<"] "
@@ -757,20 +694,12 @@ class MessageHandlerTest : public MessageHandler
         std::cout<<std::endl;
     }
 
-    void verify(int rank)
-    {
-        if( rank != 0) {
-            assert( s_ == "helloworld" );
-            assert( i_ = 5 );
-            for( size_t i = 0; i<5; ++i) {
-                assert( d_[i] == (static_cast<double>(i)/10.0));
-            }
-        }
-    }
     virtual bool handle(char mode)
     {
+     // print what is going to be written
         if( mode == 'w') {
-            std::cout<<"\nwriting s = "<<s_
+            std::cout<<mb_.comm().str()
+                     <<"\nwriting s = "<<s_
                      <<"\nwriting i = "<<i_
                      <<"\nwriting d = [ ";
             for( size_t i = 0; i<5; ++i) {
@@ -781,9 +710,10 @@ class MessageHandlerTest : public MessageHandler
         ms_.handle(s_,mode);
         ms_.handle(i_,mode);
         ms_.handle(d_,mode);
-
+     // print what has been read
         if( mode == 'r') {
-            std::cout<<"\nread s = "<<s_
+            std::cout<<mb_.comm().str()
+                     <<"\nread s = "<<s_
                      <<"\nread i = "<<i_
                      <<"\nread d = [ ";
             for( size_t i = 0; i<5; ++i) {
@@ -799,11 +729,62 @@ class MessageHandlerTest : public MessageHandler
     std::vector<double> d_;
 };
 
+
 void reverse_stringstream_2()
 {
     MessageBox mb;
-//    MessageHandlerTest mit(mb,0);
+    MessageHandlerTest& mh_test = theMessageHandlerFactory.create<MessageHandlerTest>(mb);
+    mh_test.init();
+    int to_rank = (mb.comm().rank() + 1) % 2;
+    std::cout<<mb.comm().str()<<"to_rank = "<<to_rank<<std::endl;
+    mh_test.post(to_rank);
+    mb.getMessages();
+    std::cout<<mb.comm().str();
+    std::cout<<"\n  <<<";
+    for( auto& msg : mb.messages ) {
+        std::cout<<'*';
+        mh_test.setMessage(msg);
+        mh_test.handle('r');
+    }   std::cout<<">>>"<<std::endl;
+}
+*/
 
+void test()
+{
+    // MessageStream ms;
+
+    // std::string s("helloworld");
+    // int i=5;
+    // std::vector<double> d = {.0,.1,.2,.3,.4};
+    // std::cout<<s<<std::endl;
+    // std::cout<<i<<std::endl;
+    // std::cout<<"[ ";
+    // for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
+    // std::cout<<"]\n";
+
+    // std::cout<<'s'<<std::endl;
+    // ms.handle(s,'w');
+    // std::cout<<'i'<<std::endl;
+    // ms.handle(i,'w');
+    // std::cout<<'d'<<std::endl;
+    // ms.handle(d,'w');
+
+    // std::string written = ms.str();
+    // std::cout<<"serialized: |"<<written<<'|'<<std::endl;
+
+    // s = "01234";
+    // i = 0;
+    // d.clear();
+    // ms.handle(s,'r');
+    // ms.handle(i,'r');
+    // ms.handle(d,'r');
+
+    // std::cout<<"deserialized:"<<std::endl;
+    // std::cout<<s<<std::endl;
+    // std::cout<<i<<std::endl;
+    // std::cout<<"[ ";
+    // for( auto ptr=d.data(); ptr<d.data()+d.size(); ++ptr) std::cout<<*ptr<<' ';
+    // std::cout<<"]\n";
 }
 
 PYBIND11_MODULE(core, m)
@@ -811,20 +792,20 @@ PYBIND11_MODULE(core, m)
     m.doc() = "pybind11 core plugin"; // optional module docstring
  // list the functions you want to expose:
  // m.def("exposed_name", function_pointer, "doc-string for the exposed function");
-    m.def("hello", &hello, "");
-    m.def("tryout1", &tryout1, "");
-    m.def("tryout2", &tryout2, "");
-    m.def("tryout3", &tryout3, "");
-    m.def("tryout4", &tryout4, "");
-    py::class_<MessageBox>(m, "MessageBox")
-        .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
-        .def("nMessages", &MessageBox::getNMessages)
-        .def("str",&MessageBox::str)
-        .def("getMessages", &MessageBox::getMessages)
-        ;
-    m.def("add_int_array", &add_int_array);
-    m.def("add_float_array", &add_float_array);
-    m.def("reverse_stringstream",&reverse_stringstream);
-    m.def("reverse_stringstream_1",&reverse_stringstream_1);
-    m.def("reverse_stringstream_2",&reverse_stringstream_2);
+    m.def("test", &test, "");
+    // m.def("tryout1", &tryout1, "");
+    // m.def("tryout2", &tryout2, "");
+    // m.def("tryout3", &tryout3, "");
+    // m.def("tryout4", &tryout4, "");
+    // py::class_<MessageBox>(m, "MessageBox")
+    //     .def(py::init<Index_t, Index_t>(), py::arg("maxmsgs") = 100, py::arg("size") = -1)
+    //     .def("nMessages", &MessageBox::getNMessages)
+    //     .def("str",&MessageBox::str)
+    //     .def("getMessages", &MessageBox::getMessages)
+    //     ;
+    // m.def("add_int_array", &add_int_array);
+    // m.def("add_float_array", &add_float_array);
+    // m.def("reverse_stringstream",&reverse_stringstream);
+    // m.def("reverse_stringstream_1",&reverse_stringstream_1);
+    // m.def("reverse_stringstream_2",&reverse_stringstream_2);
 }

@@ -73,8 +73,9 @@ def test_reverse_stringstream():
     onesided.core.reverse_stringstream()
 
 
+@pytest.mark.mpi(minsize=2)
 def test_reverse_stringstream_2():
-    onesided.core.reverse_stringstream-2()
+    onesided.core.reverse_stringstream_2()
 
 
 #===============================================================================
