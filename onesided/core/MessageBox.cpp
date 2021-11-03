@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <sstream>
+#include <iomanip>
 
 #include "MessageBox.h"
 
@@ -22,28 +23,37 @@ namespace mpi
  //------------------------------------------------------------------------------------------------
     MessageBox::
     MessageBox
-      ( size_t max_msgs
-      , size_t size // in sizeof(Index_t)
-      ) : comm_(MPI_COMM_WORLD)
+      ( size_t size // in sizeof(Index_t)
+      , size_t max_msgs
+      ) 
+      : comm_(MPI_COMM_WORLD)      
     {
+     // Create an MPI window and allocate memory for it
+        size_t total_size = size + 1 + max_msgs * MessageBuffer::HEADER_SIZE;
         Index_t * pWindowBuffer = nullptr;
-
+        
         int success =
-        MPI_Win_allocate
-          ( static_cast<MPI_Aint>(size * sizeof(Index_t)) // The size of the memory area exposed through the window, in bytes.
-          , sizeof(Index_t) // The displacement unit is used to provide an indexing feature during RMA operations. 
-          , MPI_INFO_NULL   // MPI_Info object
-          , comm_.comm()    // MPI_Comm communicator
-          , &pWindowBuffer  // pointer to allocated memory
-          , &window_        // pointer to the MPI_Win object
-          );
-
+            MPI_Win_allocate
+                ( static_cast<MPI_Aint>( total_size * sizeof(Index_t) ) // The size of the memory area exposed through the window, in bytes.
+                , sizeof(Index_t) // The displacement unit is used to provide an indexing feature during RMA operations. 
+                , MPI_INFO_NULL   // MPI_Info object
+                , comm_.comm()    // MPI_Comm communicator
+                , &pWindowBuffer  // pointer to allocated memory
+                , &window_        // pointer to the MPI_Win object
+                );
         if( success != MPI_SUCCESS ) {
             std::string errmsg = comm_.str() + "MPI_Win_allocate failed.";
             throw std::runtime_error(errmsg);
         }
-        windowBuffer_.initialize(    pWindowBuffer, size);
-        readBuffer_  .initialize(new Index_t[size], size);
+
+     // Initialize the window buffer with the memory allocated by MPI_Win_allocate
+        windowBuffer_.initialize( pWindowBuffer, total_size, max_msgs );
+
+     // Allocate memory for the read buffer and initialize it
+        readHeader_.initialize( 0, max_msgs );
+
+     // Allocate memory for the read buffer and initialize it
+        readBuffer_.initialize( size, max_msgs );
     }
 
  
@@ -52,89 +62,111 @@ namespace mpi
     ~MessageBox()
     {// free resources.     
         MPI_Win_free(&window_);
-        delete[] readBuffer_.ptr();
     }
 
-
-    Index_t
+    void*
     MessageBox::
-    postMessage(Index_t for_rank, MessageHandlerBase& messageHandler)
+    allocateMessage(Index_t sz, int from_rank, int to_rank, size_t key, Index_t* the_msgid )
     {
+        std::cout<<windowBuffer_.headers(true)<<std::endl;
+
         Index_t msgid = windowBuffer_.nMessages();
-        // Index_t begin = messageBegin(msgid);
-        // setMessageEnd        (msgid, begin + convertSizeInBytes<8,8>(nBytes));
-        // setMessageDestination(msgid, for_rank);
-        // setMessageKey        (msgid, messageHandler.key());
-
-        // memcpy( windowBuffer_.messagePtr(msgid), bytes, nBytes );
-
-     // Increment number of messages.
-        windowBuffer_.incrementNMessages();
-
-
-        return msgid;
-    }
-
-
-    Index_t
-    MessageBox::
-    getHeaderFromRank(int rank)
-    {// header is stored in this->messageHeaders[rank], a std::vector<Index_t> which was
-     // appropriately sized in the MessageBox ctor.
-        int success =
-                      0;
-        // MPI_Get
-        //   ( readBuffer_.ptr() // buffer to store the elements to get
-        //   , headerSectionSize_()                // size of that buffer (number of elements)
-        //   , MPI_LONG_LONG_INT            // type of that buffer
-        //   , rank                         // process rank to get from (target)
-        //   , 0                            // offset in targets window
-        //   , headerSectionSize_()                // number of elements to get
-        //   , MPI_LONG_LONG_INT            // data type of that buffer
-        //   , window_                      // window
-        //   );
-        if( success != MPI_SUCCESS ) {
-            std::string errmsg = comm_.str() + "MPI_get failed (getting header).";
-            throw std::runtime_error(errmsg);
+        if( the_msgid ) {
+            *the_msgid = msgid;
         }
+        windowBuffer_.incrementNMessages();
+        
+        windowBuffer_.setMessageSource     (msgid, from_rank);
+        windowBuffer_.setMessageDestination(msgid, to_rank);
+        windowBuffer_.setMessageHandlerKey (msgid, key);
 
-        return -1;
-    }
+     // The begin of the message is already set. Only the end must be set. 
+        Index_t end = windowBuffer_.messageBegin(msgid) + sz;
+        windowBuffer_.setMessageEnd( msgid, end );
+     // Set the begin of the next message (so that the comment above is remains true).
+     // The begin of the next message is end of this message.
+        windowBuffer_.setMessageBegin( msgid + 1, end ); 
 
-    void
-    MessageBox::
-    getHeaderFromAllRanks()
-    {
-        for( int r=0; r<comm_.size(); ++r) 
-            if( r != comm_.rank() ) // skip own rank
-                getHeaderFromRank(r);
-    }
+        std::cout<<windowBuffer_.headers(true)<<std::endl;
 
-    std::string
-    MessageBox::
-    headerSectionToStr() const
-    {
-        std::stringstream ss;
-        // ss<<comm_.str()<<"\nheaders:";
-        // for( int r=0; r<comm_.size(); ++r) {
-        //     if( r != comm_.rank() ) {// skip own rank
-        //         Index_t nMessages = receivedMessageHeaders_[r][0];
-        //         ss<<"\n  from rank "<<r<<" : "<<nMessages<<" messages";
-        //         Index_t const * buffer = receivedMessageHeaders_[r].data();
-        //         for( Index_t m=0; m<nMessages; ++m ) {
-        //             ss<<"\n    message "<<m<<" for rank "<<messageDestination(m,buffer)
-        //               <<" ["<<messageBegin(m,buffer)<<','<<messageEnd(m,buffer)<<'[';
-        //         }
-        //     }
-        // }
-        // ss<<'\n';
-        return ss.str();
+        return windowBuffer_.messagePtr(msgid);
     }
 
     void
     MessageBox::
     getMessages()
     {
+        int const my_rank = comm().rank();
+        int const nranks  = comm().size();
+     // loop over all ranks, starting with the left neighbour:
+        int left = (my_rank - 1 + nranks) % nranks;
+        for( int i = 0; i < nranks; ++i)
+        {
+            int from_rank = (left + i) % nranks;
+            if( from_rank != my_rank ) // skip my rank
+            {
+                std::cout<<"from_rank="<<from_rank<<std::endl;
+                {   Epoch(*this,0);
+                    getHeader(from_rank);
+                    for( Index_t m = 0; m < readBuffer_.nMessages(); ++m ) {
+                        if( readBuffer_.messageDestination(m) == my_rank ) {
+                            getMessage(from_rank, m);
+                        }
+                    }
+                }
+            }
+        }  
+
+    }
+
+    void
+    MessageBox::
+    getHeader(int from_rank)
+    {
+        int success =
+        MPI_Get
+          ( readBuffer_.ptr()           // buffer to store the elements to get
+          , readBuffer_.headerSize()    // size of that buffer (number of elements)
+          , MPI_LONG_LONG_INT           // type of that buffer
+          , from_rank                   // process rank to get from (target)
+          , 0                           // offset in targets window
+          , windowBuffer_.headerSize()  // number of elements to get
+          , MPI_LONG_LONG_INT           // data type of that buffer
+          , window_                     // window
+          );
+        if( success != MPI_SUCCESS ) {
+            std::string errmsg = comm_.str() + "MPI_get failed, while getting header from rank " + std::to_string(from_rank) + ".";
+            throw std::runtime_error(errmsg);
+        }
+    }
+
+    void
+    MessageBox::
+    getMessage(int from_rank, Index_t from_msgid)
+    {
+        Index_t to_msgid = readBuffer_.nMessages();
+        int success =
+        MPI_Get
+            ( readBuffer_.messagePtr (to_msgid)    // buffer to store the elements to get
+            , readBuffer_.messageSize(to_msgid)    // size of that buffer (number of elements0
+            , MPI_LONG_LONG_INT                    // type of that buffer
+            , from_rank                            // process rank to get from (target)
+            , readHeader_.messageBegin(from_msgid) // offset in targets window
+            , readHeader_.messageSize (from_msgid) // number of elements to get
+            , MPI_LONG_LONG_INT                    // data type of that buffer
+            , window_                              // window
+            );
+        if( success != MPI_SUCCESS ) {
+            std::string errmsg = comm_.str() + "MPI_get failed (getting message).";
+            throw std::runtime_error(errmsg);
+        }
+        readBuffer_.incrementNMessages();
+    }
+
+    // void
+    // MessageBox::
+    // getMessages()
+    // {
         // messages.clear();
         // {// open an epoch
         //     Epoch epoch(*this,0);
@@ -183,7 +215,7 @@ namespace mpi
 //            }
 //            std::cout<<std::endl;
 //        }
-    }
+    // }
  //------------------------------------------------------------------------------------------------
  // class Epoch implementation
  //------------------------------------------------------------------------------------------------

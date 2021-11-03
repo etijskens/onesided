@@ -3,39 +3,45 @@
 namespace mpi 
 {
  //------------------------------------------------------------------------------------------------
- // MessageHandlerFactory implementation
+ // MessageHandlerRegistry implementation
  //------------------------------------------------------------------------------------------------
 
-    MessageHandlerFactory::
-    MessageHandlerFactory() : counter_(0) {}
+    MessageHandlerRegistry::
+    MessageHandlerRegistry() : counter_(0) {}
 
-    MessageHandlerFactory::
-    ~MessageHandlerFactory()
+    void
+    MessageHandlerRegistry::
+    registerMessageHandler(MessageHandlerBase* messageHandler)
     {
-        // destroy all items in the map
-    }
-        
-    MessageHandlerBase* 
-    MessageHandlerFactory::
-    operator[](size_t key)
-    {
-        return registry_[key];
+        registry_[counter_] = messageHandler;
+        messageHandler->key_ = counter_;
+        ++counter_;
     }
 
+    static MessageHandlerRegistry theMessageHandlerRegistry;
 
  //------------------------------------------------------------------------------------------------
- // MessageHandlerFactory implementation
+ // MessageHandlerRegistry implementation
  //------------------------------------------------------------------------------------------------
     MessageHandlerBase::
-    MessageHandlerBase(size_t key)
-      : key_(key)
-    {}
+    MessageHandlerBase(MessageBox& mb)
+      : messageBox_(mb)
+    {
+        theMessageHandlerRegistry.registerMessageHandler(this);
+    }
 
     void
     MessageHandlerBase::
     post(int to_rank)
     {// construct the message, and put the message in the mpi window
+
+     // compute the length of the message:
+        Index_t sz = convertSizeInBytes<sizeof(Index_t)>(message_.size());
+        int from_rank = messageBox_.comm().rank();
+        Index_t msgid = -1;
+        void* ptr = messageBox_.allocateMessage( sz, from_rank, to_rank, key_, &msgid );
+        Index_t begin = messageBox_.windowBuffer_.messageBegin(msgid);
+        message_.write(ptr);
     }
  //------------------------------------------------------------------------------------------------
-
 }// namespace mpi

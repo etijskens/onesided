@@ -1,3 +1,6 @@
+#ifndef COMMUNICATOR_H
+#define COMMUNICATOR_H
+
 #include <string>
 #include <mpi.h>
 
@@ -22,4 +25,6 @@ namespace mpi
         int size_;
     };
  //------------------------------------------------------------------------------------------------
-}
+}// namespace mpi
+
+#endif // COMMUNICATOR_H

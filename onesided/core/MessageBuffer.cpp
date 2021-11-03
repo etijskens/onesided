@@ -1,33 +1,86 @@
 #include "MessageBuffer.h"
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+
+#define FILL_BUFFER
 
 namespace mpi
-{
-  //------------------------------------------------------------------------------------------------
- // Convert a size in bytes, ensuring that the result is rounded up to Boundary. The result is
- // expressed in word of Unit bytes.
- // E.g.  convertSizeInBytes<8>(4) -> 8 : the smallest 8 byte boundary >= 4 bytes is 8 bytes
- // E.g.  convertSizeInBytes<8,8>(4) -> 8 : the smallest 8 byte boundary >= 4 bytes is 1 8-byte word
- // E.g.  convertSizeInBytes<8,2>(4) -> 8 : the smallest 8 byte boundary >= 4 bytes is 4 2-byte words
-    template<size_t Boundary, size_t Unit=1>
-    Index_t convertSizeInBytes(Index_t bytes) {
-        return ((bytes + Boundary - 1) / Boundary) * (Boundary / Unit);
-    }
-   
+{   
  //------------------------------------------------------------------------------------------------
-    void
+ // Implementation of class MessageBuffer       
+ //------------------------------------------------------------------------------------------------
     MessageBuffer::
-    initialize(Index_t* pBuffer, size_t size, size_t maxmsgs)
-    {
-        bufferSize_ = size;
-        
-        pBuffer_[0] = 0; // initially, there are no messages.
-        pBuffer_[1] = 1 + HEADER_SIZE * maxmsgs_; // Begin of the first message, and the
-                                                  // size of the message header section.
-        setMessageBegin( 0, pBuffer_[1] );
-    }
- //------------------------------------------------------------------------------------------------
-       
+    MessageBuffer()
+      : pBuffer_(nullptr)
+      , bufferSize_(0)
+      , bufferOwned_(false)
+      , maxmsgs_(0)
+    {}
 
+    MessageBuffer::
+    ~MessageBuffer()
+    {
+        std::cout<<"~MessageBuffer()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
+        if( bufferOwned_ )
+            delete[] pBuffer_;
+    }
+
+    void 
+    MessageBuffer::
+    initialize( size_t size, size_t max_msgs )
+    {
+        bufferSize_ = 1 + max_msgs * HEADER_SIZE + size;
+        pBuffer_ = new Index_t[bufferSize_];
+        bufferOwned_ = true;
+        maxmsgs_ = max_msgs;
+        initialize_();
+    }
+
+    void 
+    MessageBuffer::
+    initialize( Index_t * pBuffer, size_t size, size_t max_msgs )
+    {
+        pBuffer_ = pBuffer;
+        bufferSize_ = size;
+        bufferOwned_ = false;
+        maxmsgs_ = max_msgs;
+        initialize_();
+    }
+
+    void 
+    MessageBuffer::
+    initialize_()
+    {
+        pBuffer_[0] = 0; // initially, there are no messages.
+        setMessageBegin( 0, 1 + HEADER_SIZE * maxmsgs_ ); // Begin of the first message, and the size of the message header section.
+      #ifdef FILL_BUFFER   
+        for( Index_t i = 2; i < bufferSize_; ++i ) {
+            pBuffer_[i] = -1;
+        }
+      #endif
+        // std::cout<<"MessageBuffer()::initialize_()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
+    }
+
+    std::string 
+    MessageBuffer::
+    headers(bool verbose) const
+    {
+        std::stringstream ss;
+        Index_t n = verbose ? maxMessages() : nMessages();
+        // std::cout<<nMessages()<<'/'<<maxMessages()<<std::endl;
+        ss<<std::setw(4)<<"id"<<std::setw(20)<<"from"<<std::setw(20)<<"to"<<std::setw(20)<<"key"<<std::setw(20)<<"begin"<<std::setw(20)<<"end"<<'\n';
+        for( Index_t i = 0; i < n; ++i ) {
+            ss<<std::setw(4)<<i
+              <<std::setw(20)<<messageSource     (i)
+              <<std::setw(20)<<messageDestination(i)
+              <<std::setw(20)<<messageHandlerKey (i)
+              <<std::setw(20)<<messageBegin      (i)
+              <<std::setw(20)<<messageEnd        (i)
+              <<'\n';
+        }        
+        return ss.str();
+    }
 
  //------------------------------------------------------------------------------------------------
 }

@@ -2,28 +2,30 @@
 #define MESSAGEBOX_H
 
 #include <vector>
+#include <iostream>
+#include <iomanip>
 #include "Communicator.h"
 #include "MessageBuffer.h"
-#include "MessageHandler.h"
 
 
 namespace mpi 
 {
-
  //------------------------------------------------------------------------------------------------
     class MessageBox
  // Encapsulation of
  //   - the MPI_Win object
  //   - the MPI communicator (MPI_COMM_WORLD)
- //   - add messages to the MPI window
- //   - check someone else's header and messages (MPI_Get)
+ //   - posting messages to the MPI window
+ //   - retrieve header and message from the MPI window 
  // This class 
  //------------------------------------------------------------------------------------------------
     {
+        friend class MessageHandlerBase;
+        enum { DEFAULT_MAX_MESSAGES = 10 };
     public:
         MessageBox
-          ( size_t maxmsgs=100 // maximum number of messages that can be stored.
-          , size_t size=-1
+          ( size_t bufferSize    
+          , size_t max_msgs   // maximum number of messages that can be stored.
           );
          ~MessageBox();
 
@@ -32,20 +34,20 @@ namespace mpi
         inline Communicator const & comm() const { return comm_; }
 
      // Get header from some process (to be called inside an epoch)
-        Index_t getHeaderFromRank(int rank); // return msgid in readBuffer_ ???
-        void    getHeaderFromAllRanks();
         void getMessages();
-        
-     // string representation of header section
-        std::string headerSectionToStr() const;
+        void getHeader (int from_rank);
+        void getMessage(int from_rank, Index_t msgid);
 
-     // Post a message (binary) in the MPI window.
-      Index_t postMessage(Index_t for_rank, MessageHandlerBase& messageHandler);
+     // Reserve space for a message of size sz to be posted, and make a header for it.
+     // Returns a pointer to the reserved part of the MPI window buffer.
+     // The message id is returned in msgid. 
+        void* allocateMessage(Index_t sz, int from_rank, int to_rank, size_t key, Index_t* msgid = nullptr);
         
       private:
         Communicator comm_;
         MPI_Win  window_;
         MessageBuffer windowBuffer_; // its memory is allocated by MPI_Win_allocate
+        MessageBuffer readHeader_;   // its memory is allocated by new Index_t[]
         MessageBuffer readBuffer_;   // its memory is allocated by new Index_t[]
     };
 
@@ -78,5 +80,6 @@ namespace mpi
         MessageBox& mb_;
     };
  //------------------------------------------------------------------------------------------------
-}// namespace mpi ends here 
+}// namespace mpi
+
 #endif // MESSAGEBOX_H
