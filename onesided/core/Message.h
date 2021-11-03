@@ -94,7 +94,7 @@ namespace mpi
         static void write( T const& t, void * & ptr )
         {// we must also write the size of the array, so that on reading we know what to expect
             size_t sz = t.size();    
-            std::cout<<"writing size "<<sz<<std::endl;
+            // std::cout<<"writing size "<<sz<<std::endl;
             memcpy(ptr, &sz, sizeof(size_t));
             ptr = static_cast<char*>(ptr) + sizeof(size_t);
             sz *= sizeof(typename T::value_type);

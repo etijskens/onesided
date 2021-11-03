@@ -18,7 +18,7 @@ namespace mpi
         ++counter_;
     }
 
-    static MessageHandlerRegistry theMessageHandlerRegistry;
+    MessageHandlerRegistry theMessageHandlerRegistry;
 
  //------------------------------------------------------------------------------------------------
  // MessageHandlerRegistry implementation
@@ -39,9 +39,9 @@ namespace mpi
         Index_t sz = convertSizeInBytes<sizeof(Index_t)>(message_.size());
         int from_rank = messageBox_.comm().rank();
         Index_t msgid = -1;
-        void* ptr = messageBox_.allocateMessage( sz, from_rank, to_rank, key_, &msgid );
-        Index_t begin = messageBox_.windowBuffer_.messageBegin(msgid);
+        void* ptr = messageBox_.windowBuffer().allocateMessage( sz, from_rank, to_rank, key_, &msgid );
         message_.write(ptr);
     }
+
  //------------------------------------------------------------------------------------------------
 }// namespace mpi

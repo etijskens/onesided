@@ -18,6 +18,9 @@ namespace py = pybind11;
 #include "Message.cpp"
 #include "MessageHandler.cpp"
 
+#include <stdexcept>
+
+
 using namespace mpi;
 
 bool test_hello()
@@ -59,10 +62,20 @@ public:
         vi_.push_back(vi0);
         vi_.push_back(vi0+1);
         vi_.push_back(vi0+2);
-        if( mb.comm().rank() != 0 ) {
+        if( mb.comm().rank() == 1 ) {
+         // clear the receiver's data
             this->clear();
+            bool verified = this->verify();
+            if( verified ) {
+                std::string errmsg = mb.comm().str() + "verified = true.";
+                throw std::runtime_error(errmsg);
+            }
         } else {
-            this->verify();
+            bool verified = this->verify();
+            if( !verified ) {
+                std::string errmsg = mb.comm().str() + "verified = false.";
+                throw std::runtime_error(errmsg);
+            }
         }        
      // add the data to the message
         message().push_back(i_);
@@ -100,11 +113,24 @@ bool test_mh()
 {
     bool ok = true;
     MessageBox mb(1000,10);
+    int rank = mb.comm().rank();
     MyMessageHandler mh(mb);
-    if( mb.comm().rank() == 0 ) {
+    if( rank == 0 ) {
+        std::cout<<mb.comm().str()<<"posting to 1"<<std::endl;
         mh.post(1);
-    } 
+    } else {
+        std::cout<<mb.comm().str()<<std::endl;
+    }
     
+
+    mb.getMessages();
+
+    bool msg_ok = mh.verify();
+    std::cout<<mb.comm().str()
+             <<( rank == 0 ? "poster " : (rank == 1 ? "receiver " : "neutral "))
+             <<"ok = "<<ok<<std::endl;
+    
+    ok &= msg_ok;
     return ok;
 }
 

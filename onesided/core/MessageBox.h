@@ -6,6 +6,7 @@
 #include <iomanip>
 #include "Communicator.h"
 #include "MessageBuffer.h"
+// #include "MessageHandler.h"
 
 
 namespace mpi 
@@ -20,34 +21,60 @@ namespace mpi
  // This class 
  //------------------------------------------------------------------------------------------------
     {
-        friend class MessageHandlerBase;
+        // friend class MessageHandlerBase;
         enum { DEFAULT_MAX_MESSAGES = 10 };
     public:
         MessageBox
-          ( size_t bufferSize    
-          , size_t max_msgs   // maximum number of messages that can be stored.
+          ( size_t bufferSize // the size of the message section of the buffer, in Index_t words.
+          , size_t max_msgs   // maximum number of messages that can be stored. 
+                              // This defines the size of the header section.
           );
          ~MessageBox();
 
-        inline MPI_Win window() { return window_; }
+    //  // Allocate resources in the windowBuffer_ for a message: 
+    //  //   - reserve space for a message of size sz to be posted
+    //  //   - make a header for that message
+    //     void*                          // pointer to the reserved memory in the windowBuffer_
+    //     allocateMessage
+    //       ( Index_t sz                 // the size of the message, in bites
+    //       , int     to_rank            // the destination of the message
+    //       , MessageHandlerBase::
+    //         key_type messageHandlerKey // the key of the object responsible for reading the message
+    //       , Index_t* msgid = nullptr   //  on return contains the id of the allocated message, if provided
+    //       );
 
-        inline Communicator const & comm() const { return comm_; }
-
-     // Get header from some process (to be called inside an epoch)
+     // Get all messages for this rank from all other ranks 
         void getMessages();
-        void getHeader (int from_rank);
-        void getMessage(int from_rank, Index_t msgid);
 
-     // Reserve space for a message of size sz to be posted, and make a header for it.
-     // Returns a pointer to the reserved part of the MPI window buffer.
-     // The message id is returned in msgid. 
-        void* allocateMessage(Index_t sz, int from_rank, int to_rank, size_t key, Index_t* msgid = nullptr);
+    private:
+     // copy the header section from from_rank into the readHeaders_   
+        void getHeaders_
+          ( int from_rank // rank to get the header section from
+          );
+
+     // MPI_Get the message with id msgid in readHeaders_ (which is a copy of some other
+     // rank's header section) and store the message in readBuffer_.
+        Index_t           // id of the message received, which was stored in readBuffer_
+        getMessage_
+          ( Index_t msgid // id of the message to get
+          );
+
+     // Fetch the message handler for the message and read the message.
+        void readMessage_
+          ( Index_t to_msgid // message id in readBuffer_, from which the message is to 
+                             // be read with the appropriate message handler
+          );
+
+    public: // data member accessors
+        inline MessageBuffer& windowBuffer() {return windowBuffer_;}
+        inline MPI_Win window() { return window_; }
+        inline Communicator const & comm() const { return comm_; }
         
-      private:
+    private:
         Communicator comm_;
         MPI_Win  window_;
         MessageBuffer windowBuffer_; // its memory is allocated by MPI_Win_allocate
-        MessageBuffer readHeader_;   // its memory is allocated by new Index_t[]
+        MessageBuffer readHeaders_;   // its memory is allocated by new Index_t[]
         MessageBuffer readBuffer_;   // its memory is allocated by new Index_t[]
     };
 

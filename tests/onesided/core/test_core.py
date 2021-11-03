@@ -19,14 +19,13 @@ def assert_nprocesses(nexpected):
     assert nexpected == comm.size
 
 def test_hello():
-    if not MPI.COMM_WORLD.size == 1:
-        return 
+    # if not MPI.COMM_WORLD.size == 1:
+    #     return 
     ok = onesided.core.test_hello()
     print(f"ok = {ok}")
     assert ok
 
 def test_mh():
-    assert_nprocesses(1)
     ok = onesided.core.test_mh()
     print(f"ok = {ok}")
     assert ok

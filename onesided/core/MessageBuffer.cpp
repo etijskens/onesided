@@ -15,21 +15,26 @@ namespace mpi
       : pBuffer_(nullptr)
       , bufferSize_(0)
       , bufferOwned_(false)
+      , headersOnly_(false)
       , maxmsgs_(0)
     {}
 
     MessageBuffer::
     ~MessageBuffer()
     {
-        std::cout<<"~MessageBuffer()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
+        // std::cout<<"~MessageBuffer()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
         if( bufferOwned_ )
             delete[] pBuffer_;
     }
 
     void 
     MessageBuffer::
-    initialize( size_t size, size_t max_msgs )
+    initialize
+      ( size_t size     // amount to be allocated for the messages, not counting the memory for the header section
+      , size_t max_msgs // maximum number of messages that can be stored.
+      )
     {
+        headersOnly_ = (size == 0);
         bufferSize_ = 1 + max_msgs * HEADER_SIZE + size;
         pBuffer_ = new Index_t[bufferSize_];
         bufferOwned_ = true;
@@ -37,9 +42,13 @@ namespace mpi
         initialize_();
     }
 
-    void 
+    void
     MessageBuffer::
-    initialize( Index_t * pBuffer, size_t size, size_t max_msgs )
+    initialize
+      ( Index_t * pBuffer // pointer to pre-allocated memory
+      , size_t size       // amount of pre-allocated memory 
+      , size_t max_msgs   // maximum number of messages that can be stored.
+      )
     {
         pBuffer_ = pBuffer;
         bufferSize_ = size;
@@ -62,6 +71,45 @@ namespace mpi
         // std::cout<<"MessageBuffer()::initialize_()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
     }
 
+    void MessageBuffer::clear()
+    {// To clear the MessageBuffer, it suffices to set the number of messages to 0
+        pBuffer_[0] = 0;
+    }
+
+    void*                         // returns pointer to the reserved memory in the MessageBuffer
+    MessageBuffer::
+    allocateMessage
+      ( Index_t  sz             // the size of the message, in bites
+      , int      from_rank      // the source of the message
+      , int      to_rank        // the destination of the message
+      , MessageHandlerKey_t key // the key of the object responsible for reading the message
+      , Index_t* the_msgid      // on return contains the id of the allocated message, if provided
+      )
+    {
+        // std::cout<<headers(true)<<std::endl;
+
+        Index_t msgid = nMessages();
+        if( the_msgid ) {
+            *the_msgid = msgid;
+        }
+        incrementNMessages();
+        
+        setMessageSource     (msgid, from_rank);
+        setMessageDestination(msgid, to_rank);
+        setMessageHandlerKey (msgid, key);
+
+     // The begin of the message is already set. Only the end must be set. 
+        Index_t end = messageBegin(msgid) + sz;
+        setMessageEnd( msgid, end );
+     // Set the begin of the next message (so that the comment above is remains true).
+     // The begin of the next message is end of this message.
+        setMessageBegin( msgid + 1, end ); 
+
+        // std::cout<<headers(true)<<std::endl;
+
+        return ( headersOnly_ ? nullptr : messagePtr(msgid) );
+    }
+
     std::string 
     MessageBuffer::
     headers(bool verbose) const
@@ -72,6 +120,7 @@ namespace mpi
         ss<<std::setw(4)<<"id"<<std::setw(20)<<"from"<<std::setw(20)<<"to"<<std::setw(20)<<"key"<<std::setw(20)<<"begin"<<std::setw(20)<<"end"<<'\n';
         for( Index_t i = 0; i < n; ++i ) {
             ss<<std::setw(4)<<i
+              << ('+' ? i < n : '-')
               <<std::setw(20)<<messageSource     (i)
               <<std::setw(20)<<messageDestination(i)
               <<std::setw(20)<<messageHandlerKey (i)

@@ -2,9 +2,8 @@
 #define MESSAGEBUFFER_H
 
 #include <vector>
+#include "types.h"
 
- // copied from Primitives/Types/Index.h
-    typedef int64_t Index_t;
 
 namespace mpi 
 {
@@ -30,7 +29,7 @@ namespace mpi
      // allocate memory for the buffer:
         void 
         initialize
-          ( size_t size     // amount to be allocated (on top of that for the header)
+          ( size_t size     // amount to be allocated for the messages, not counting the memory for the header section
           , size_t max_msgs // maximum number of messages that can be stored.
           );
      // Assign pre-allocated memory for the buffer
@@ -39,6 +38,22 @@ namespace mpi
           ( Index_t * pBuffer // pointer to pre-allocated memory
           , size_t size       // amount of pre-allocated memory 
           , size_t max_msgs   // maximum number of messages that can be stored.
+          );
+
+     // clear the MessageBuffer
+        void clear();
+
+     // Allocate resources for a message in the MessageBuffer: 
+     //   - reserve space for a message of size sz to be posted
+     //   - make a header for that message
+        void*                        // returns pointer to the reserved memory in the MessageBuffer, or
+                                     // nullptr if this is a headers only buffer
+        allocateMessage
+          ( Index_t  sz              // the size of the message, in bites
+          , int      from_rank       // the source of the message
+          , int      to_rank         // the destination of the message
+          , MessageHandlerKey_t key  // the key of the object responsible for reading the message
+          , Index_t* msgid = nullptr // on return contains the id of the allocated message, if provided
           );
 
      // Member functions for reading message headers from a buffer (getters).
@@ -103,6 +118,7 @@ namespace mpi
         Index_t *pBuffer_;
         size_t bufferSize_;
         bool bufferOwned_;
+        bool headersOnly_;
         size_t maxmsgs_;
      };
  //------------------------------------------------------------------------------------------------
