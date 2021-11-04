@@ -1,7 +1,7 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#include <vector>
+#include "memcpy_able.h"
 #include <string>
 #include <iostream>
 #include <sstream>

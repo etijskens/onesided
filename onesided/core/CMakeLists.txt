@@ -64,10 +64,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
 
 # Add include directories
-#include_directories(
-#     path/to/dir1
-#     path/to/dir2
-# )
+include_directories(
+    /Users/etijskens/workspace/eigen
+)
 
 # Add link directories
 # link_directories(
