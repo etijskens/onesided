@@ -22,9 +22,14 @@ namespace mpi
     MessageBuffer::
     ~MessageBuffer()
     {
-        // std::cout<<"~MessageBuffer()"<<pBuffer_<<'/'<<bufferSize_<<'/'<<bufferOwned_<<std::endl;
-        if( bufferOwned_ )
+        if constexpr(verbose) {
+            std::cout<<"rank"<<::mpi::my_rank<<" ~MessageBuffer() "<<pBuffer_<<'['<<bufferSize_<<"] owned="<<bufferOwned_;
+            
+        }
+        if( bufferOwned_ ) {
             delete[] pBuffer_;
+            if constexpr(verbose) std::cout<<" deleted";
+        }   if constexpr(verbose) std::cout<<std::endl;
     }
 
     void 
@@ -52,7 +57,7 @@ namespace mpi
     {
         pBuffer_ = pBuffer;
         bufferSize_ = size;
-        bufferOwned_ = false;
+        bufferOwned_ = false; // buffer is owned by whoever allocated it (typeically MPI_Win_alloc)
         maxmsgs_ = max_msgs;
         initialize_();
     }

@@ -52,7 +52,11 @@ namespace mpi
     MessageBox::
     ~MessageBox()
     {// free resources.     
-        MPI_Win_free(&window_);
+        if constexpr(verbose) std::cout<<"\nrank"<<::mpi::my_rank<<" ~MessageBox() {";
+        int success = MPI_Win_free(&window_);
+        if constexpr(verbose) { 
+            std::cout<<" MPI_Win_free(&window_) success = "<<(success == MPI_SUCCESS)<<" }"<<std::endl;
+        }
     }
 
     void

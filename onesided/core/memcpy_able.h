@@ -6,10 +6,14 @@
 #include <string>
 #include <Eigen/Geometry>
 
+typedef int64_t Index_t;
 
 namespace mpi
 {//-------------------------------------------------------------------------------------------------
-    namespace internal 
+    bool const verbose = true; // compile time constant restricted to this namespace.
+    int my_rank = -1;
+ //-------------------------------------------------------------------------------------------------    
+   namespace internal 
     {// This contains the machinery 
      //-------------------------------------------------------------------------------------------------
         template<typename T>

@@ -49,14 +49,18 @@ namespace mpi
         MessageHandlerBase(MessageBox& mb);
 
      // Post the message (i.e. put it in the MPI window.)
-        void post(int to_rank);
+        void putMessage
+          ( int to_rank // destination of the message.
+          );
         
      // Read the message from a buffer (void*)
      //    someMessageHandler.message().read(ptr)
 
      // data member access
+        inline MessageBox& messageBox() { return messageBox_; }
         inline Message& message() { return message_; }
         inline key_type key() const { return key_; }
+        inline Communicator const & comm() const { return messageBox_.comm(); } 
 
     protected:
         MessageBox& messageBox_;

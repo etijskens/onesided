@@ -32,11 +32,11 @@ namespace mpi
 
     void
     MessageHandlerBase::
-    post(int to_rank)
+    putMessage(int to_rank)
     {// construct the message, and put the message in the mpi window
 
      // compute the length of the message:
-        Index_t sz = convertSizeInBytes<sizeof(Index_t)>(message_.size());
+        Index_t sz = convertSizeInBytes<sizeof(Index_t)>(message_.messageSize());
         int from_rank = messageBox_.comm().rank();
         Index_t msgid = -1;
         void* ptr = messageBox_.windowBuffer().allocateMessage( sz, from_rank, to_rank, key_, &msgid );

@@ -8,14 +8,11 @@ namespace mpi
     Message::
     ~Message()
     {
-        MessageItemBase** const pBegin = &coll_[0];
-        MessageItemBase** const pEnd   = pBegin + coll_.size();
-        for( MessageItemBase** p = pBegin; p < pEnd; ++p) {
-            delete *p;
+        if constexpr(verbose) std::cout<<"\nrank"<<::mpi::my_rank<<" ~Message() deleting MessageItems: {";
+        for( auto p : coll_) {
+            delete p;
         }
-      #ifdef VERBOSE
-        std::cout<<"~Message()"<<std::endl;
-      #endif
+        if constexpr(verbose) std::cout<<"\n}"<<std::endl;
     }
 
     void
@@ -48,13 +45,13 @@ namespace mpi
 
     size_t
     Message::
-    size() const
+    messageSize() const
     {
         size_t sz = 0;
         MessageItemBase * const * pBegin = &coll_[0];
         MessageItemBase * const * pEnd   = pBegin + coll_.size();
         for( MessageItemBase * const * p = pBegin; p < pEnd; ++p) {
-            sz += (*p)->size();
+            sz += (*p)->messageSize();
         }
         return sz;
     }

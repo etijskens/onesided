@@ -30,6 +30,11 @@ def test_mh():
     print(f"ok = {ok}")
     assert ok
 
+def test_mh2():
+    ok = onesided.core.test_mh2()
+    print(f"ok = {ok}")
+    assert ok
+
 # @pytest.mark.mpi(minsize=3)
 
 
@@ -38,13 +43,14 @@ def test_mh():
 # (normally all tests are run with pytest)
 #===============================================================================
 if __name__ == "__main__":
+    # print("------------------------------------------------------------")
+    # the_test_you_want_to_debug = test_hello
+    # print(f"__main__ running {the_test_you_want_to_debug} ...")
+    # the_test_you_want_to_debug()
     print("------------------------------------------------------------")
-    the_test_you_want_to_debug = test_hello
+    the_test_you_want_to_debug = test_mh2
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()
     print("------------------------------------------------------------")
-    the_test_you_want_to_debug = test_mh
-    print(f"__main__ running {the_test_you_want_to_debug} ...")
-    the_test_you_want_to_debug()
     print('-*# finished #*-')
 #===============================================================================
