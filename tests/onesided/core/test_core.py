@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0,'.')
 
 import numpy as np
-from mpi4py import MPI
+# from mpi4py import MPI
 import onesided.core
 import pytest
 
@@ -48,6 +48,7 @@ if __name__ == "__main__":
     # print(f"__main__ running {the_test_you_want_to_debug} ...")
     # the_test_you_want_to_debug()
     print("------------------------------------------------------------")
+    print(sys.argv)
     the_test_you_want_to_debug = test_mh2
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()

@@ -197,6 +197,9 @@ public:
 
 bool test_mh2()
 {
+    int argc = 0;
+    char **argv = nullptr;
+    MPI_Init(&argc, &argv);
     bool ok = true;
     {
         MessageBox mb(1000,10);
@@ -220,7 +223,7 @@ bool test_mh2()
  // apparently, not calling MPI_Finalizes results in a segfault in python's garbage collection.
  // and for that to succeed, MPI_Win_free (in ~MessageBox) must be called first. So, the MessageBox 
  // must be in its own scope. 
-    // MPI_Finalize();
+    MPI_Finalize();
     return ok;
 }
 
