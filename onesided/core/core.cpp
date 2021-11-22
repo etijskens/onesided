@@ -242,26 +242,28 @@ namespace test3
     {
         std::vector<bool> alive_;
     public:
-//        std::vector<vec_t> x;
         std::vector<value_t> r;
         std::vector<value_t> m;
+        std::vector<vec_t>   x;
 
         ParticleContainer(int size)
         {
             std::stringstream ss;
             ss<<mpi1s::info<<'\n';
             alive_.resize(size);
-//            x.resize(size);
             r.resize(size);
             m.resize(size);
+            x.resize(size);
             for( int i=0; i<size; ++i) {
                 int ir = 100*rank + i;
                 alive_[i] = true;
-//                for( int k=0; k<3; ++k )
-//                    x[i][k] = ir;
                 r[i] = ir;
                 m[i] = ir + size;
-                ss<<i<<std::setw(4)<<r[i]<<std::setw(4)<<m[i]<<'\n';
+                for( int k=0; k<3; ++k )
+                    x[i][k] = ir+k*size;
+                ss<<i<<std::setw(4)<<r[i]
+                     <<std::setw(4)<<m[i]
+                     <<'['<<std::setw(4)<<x[i][0]<<std::setw(4)<<x[i][1]<<std::setw(4)<<x[i][2]<<"]\n";
             }   std::cout<<ss.str()<<std::endl;
         }
 
@@ -315,39 +317,40 @@ namespace test3
     class MessageHandler : public MessageHandlerBase
     {
         ParticleContainer& pc_;
-//        std::vector<vec_t> xi;
         std::vector<value_t> ri;
         std::vector<value_t> mi;
+        std::vector<vec_t  > xi;
     public:
         MessageHandler(MessageBox& mb, ParticleContainer& pc)
           : MessageHandlerBase(mb)
           , pc_(pc)
         {
-//            message().push_back(xi);
             message().push_back(ri);
             message().push_back(mi);
+            message().push_back(xi);
         }
 
         void putMessage(std::vector<int>& indices, int to_rank)
         {
-//            xi.clear();
             ri.clear();
             mi.clear();
+            xi.clear();
+
             {// assemble the non-contigous data into a contiguous array
                 for( auto index: indices) {
-//                    xi.push_back(pc_.x[index]);
                     ri.push_back(pc_.r[index]);
                     mi.push_back(pc_.m[index]);
+                    xi.push_back(pc_.x[index]);
                  // remove the particle from the pc:
                     pc_.remove(index);
                 }
                 MessageHandlerBase::putMessage(to_rank); // from rank 0 to rank 1
                 int n = ri.size();
-                std::cout<<mpi1s::info<<"sending "<<n<<" items to "<<to_rank<<'\n';
+                std::stringstream ss;
+                ss<<mpi1s::info<<"sending "<<n<<" items to "<<to_rank<<'\n';
                 for( int i=0; i<n; ++i) {
-//                    std::cout<<mpi1s::info<<i<<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
-                    std::cout<<mpi1s::info<<i<<' '<<ri[i]<<' '<<mi[i]<<'\n';
-                }   std::cout<<std::endl;
+                    ss<<i<<std::setw(4)<<ri[i]<<std::setw(4)<<mi[i]<<" ["<<std::setw(4)<<xi[i][0]<<std::setw(4)<<xi[i][1]<<std::setw(4)<<xi[i][2]<<"]\n";
+                }   std::cout<<ss.str()<<std::endl;
             }
          // clearing is not necessary. Here just to make sure that the receivers are correctly resized.
 //            xi.clear();
@@ -363,8 +366,8 @@ namespace test3
             int n = ri.size();
             std::cout<<mpi1s::info<<n<<" items received\n";
             for( int i=0; i<n; ++i) {
-//                std::cout<<mpi1s::info<<i<<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
-                std::cout<<mpi1s::info<<i<<' '<<ri[i]<<' '<<mi[i]<<'\n';
+                std::cout<<mpi1s::info<<i<<' '<<ri[i]<<' '<<mi[i]
+                          <<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
             }   std::cout<<std::endl;
          // copy to the particle container:
             std::vector<int> indices(n);
@@ -377,6 +380,7 @@ namespace test3
             for( size_t i = 0; i<n; ++i ) {
                 pc_.m[indices[i]] = mi[i];
                 pc_.r[indices[i]] = ri[i];
+                pc_.x[indices[i]] = xi[i];
             }
         }
     };
@@ -404,7 +408,10 @@ namespace test3
         ss<<info<<"pc\n";
         for(size_t i=0; i<pc.size(); ++i ) {
             if( pc.is_alive(i) ) {
-                ss<<'['<<i<<"] "<<std::setw(4)<<pc.r[i]<<std::setw(4)<<pc.m[i]<<' ';
+                ss<<'['<<i<<"] "
+                  <<std::setw(4)<<pc.r[i]
+                  <<std::setw(4)<<pc.m[i]
+                  <<" ["<<std::setw(4)<<pc.x[i][0]<<std::setw(4)<<pc.x[i][1]<<std::setw(4)<<pc.x[i][2]<<"]";
             }
          // verify contents:
             int const   my_rank = mpi1s::rank;
@@ -413,10 +420,13 @@ namespace test3
                                        : 100*my_rank + i   //even i
                                  );
             value_t expected_m = expected_r + 8;
+            vec_t   expected_x = vec_t(expected_r, expected_r+8, expected_r+16);
             ok &= pc.r[i] == expected_r;
-            ss<<ok<<' ';
+            ss<<' '<<ok;
             ok &= pc.m[i] == expected_m;
-            ss<<ok<<'\n';
+            ss<<' '<<ok;
+            ok &= pc.x[i] == expected_x;
+            ss <<' '<<ok<<'\n';
         }  std::cout<<ss.str()<<std::endl;
 
         std::cout<<::mpi1s::info<<"done"<<std::endl;
