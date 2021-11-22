@@ -7,7 +7,7 @@ Package onesided
 Top-level package for onesided.
 """
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 
 try:
     import onesided.core
