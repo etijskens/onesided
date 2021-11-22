@@ -248,6 +248,8 @@ namespace test3
 
         ParticleContainer(int size)
         {
+            std::stringstream ss;
+            ss<<mpi1s::info<<'\n';
             alive_.resize(size);
 //            x.resize(size);
             r.resize(size);
@@ -259,10 +261,12 @@ namespace test3
 //                    x[i][k] = ir;
                 r[i] = ir;
                 m[i] = ir + size;
-                std::cout<<mpi1s::info<<i<<' '<<ir<<' '<<r[i]<<' '<<m[i]<<std::endl;
-            }
+                ss<<i<<std::setw(4)<<r[i]<<std::setw(4)<<m[i]<<'\n';
+            }   std::cout<<ss.str()<<std::endl;
         }
-        size_t size() const {
+
+        size_t // the size of a particle container.
+        size() const {
             return alive_.size();
         }
 
@@ -282,6 +286,7 @@ namespace test3
             }
             return old_size;
         }
+
      // Find an index for a new particle
         int add()
         {// look for a dead particle
@@ -294,11 +299,13 @@ namespace test3
          // grow the array.
             return grow();
         }
+
      // remove an element
         void remove(int i)
         {
             alive_[i] = false;
         }
+
      // test if alive
         bool is_alive(int i) const {
             return alive_[i];
@@ -384,7 +391,7 @@ namespace test3
         {
             MessageBox mb(1000,10);
             MessageHandler mh(mb, pc);
-            if(mpi1s::size <= 2)
+            if(mpi1s::size <= 3)
             {// move the odd particles to the other rank
              // there is one message forr each process
                 std::vector<int> indices = {1,3,5,7};
@@ -396,7 +403,7 @@ namespace test3
          // destroy MessageBox mb, must come before mpi1s::finalize()
         }
         std::stringstream ss;
-        ss<<info<<"pc ";
+        ss<<info<<"pc\n";
         for(size_t i=0; i<pc.size(); ++i ) {
             if( pc.is_alive(i) ) {
                 ss<<'['<<i<<"] "<<std::setw(4)<<pc.r[i]<<std::setw(4)<<pc.m[i]<<' ';
