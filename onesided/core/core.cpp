@@ -391,12 +391,12 @@ namespace test3
         {
             MessageBox mb(1000,10);
             MessageHandler mh(mb, pc);
-         // move the odd particles to the other rank
-         // there is one message forr each process
+         // move the odd particles to the next rank
+         // there is one message for each process
             std::vector<int> indices = {1,3,5,7};
             mh.putMessage(indices, mpi1s::next_rank());
             mh.getAllMessages();
-         
+
             std::cout<<::mpi1s::info<<"end of MessageBox scope"<<std::endl;
          // destroy MessageBox mb, must come before mpi1s::finalize()
         }
