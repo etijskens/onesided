@@ -6,7 +6,7 @@
 #include "MessageBox.h"
 #include "Message.h"
 
-namespace mpi 
+namespace mpi1s
 {
     class MessageHandlerBase; // forward declaration 
 
@@ -47,20 +47,20 @@ namespace mpi
         typedef MessageHandlerRegistry::key_type key_type;
 
         MessageHandlerBase(MessageBox& mb);
+        virtual ~MessageHandlerBase();
 
      // Post the message (i.e. put it in the MPI window.)
         void putMessage
           ( int to_rank // destination of the message.
           );
         
-     // Read the message from a buffer (void*)
-     //    someMessageHandler.message().read(ptr)
+     // Read the message from the windows of the other processes.
+        void getMessages();
 
      // data member access
         inline MessageBox& messageBox() { return messageBox_; }
         inline Message& message() { return message_; }
         inline key_type key() const { return key_; }
-        inline Communicator const & comm() const { return messageBox_.comm(); } 
 
     protected:
         MessageBox& messageBox_;
@@ -68,5 +68,5 @@ namespace mpi
         key_type key_;
     };
  //------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 #endif // MESSAGEHANDLER_H

@@ -1,0 +1,162 @@
+------------------------------------------------------------
+__main__ running <function test_3 at 0x112ab8ca0> ...
+------------------------------------------------------------
+__main__ running <function test_3 at 0x113358ca0> ...
+MPI rank [0/2] 0 0 0 8
+MPI rank [0/2] 1 1 1 9
+MPI rank [0/2] 2 2 2 10
+MPI rank [0/2] 3 3 3 11
+MPI rank [0/2] 4 4 4 12
+MPI rank [0/2] 5 5 5 13
+MPI rank [0/2] 6 6 6 14
+MPI rank [0/2] 7 7 7 15
+MPI rank [1/2] 0 100 100 108
+MPI rank [1/2] 1 101 101 109
+MPI rank [1/2] 2 102 102 110
+MPI rank [1/2] 3 103 103 111
+MPI rank [1/2] 4 104 104 112
+MPI rank [1/2] 5 105 105 113
+MPI rank [1/2] 6 106 106 114
+MPI rank [1/2] 7 107 107 115
+MPI rank [1/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write (4)[ 101 103 105 107 ]
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /0/0x1143fc1a0
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /1/0x1143fc1a8=+8
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /2/0x1143fc1b8=+16
+MPI rank [1/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write (4)[ 109 111 113 115 ]
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /0/0x1143fc1b8
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /1/0x1143fc1c0=+8
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /2/0x1143fc1d0=+16
+MPI rank [0/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write (4)[ 1 3 5 7 ]
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /0/0x113b5a1a0
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /1/0x113b5a1a8=+8
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /2/0x113b5a1b8=+16
+MPI rank [0/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write (4)[ 9 11 13 15 ]
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /0/0x113b5a1b8
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /1/0x113b5a1c0=+8
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::write /2/0x113b5a1d0=+16
+MPI rank [0/2] MessageHandlerBase::putMessage()
+windowBuffer headers
+   id                from                  to                 key               begin                 end
+    0                   0                   1                   0                  51                  57
+
+windowBuffer message
+message[0]
+offset                 ptr              size_t               float              double
+     0         0x113b5a1a0                   4         5.60519e-45        1.97626e-323
+     4         0x113b5a1a4 4575657221408423936                   0           0.0078125
+     8         0x113b5a1a8 4629700418002223104                   1                  32
+    12         0x113b5a1ac 4656722015779028992                   3                2048
+    16         0x113b5a1b0 4674736414294802432                   5               32768
+    20         0x113b5a1b4         18268291072                   7        9.02574e-314
+    24         0x113b5a1b8                   4         5.60519e-45        1.97626e-323
+    28        MPI rank [1/2] MessageHandlerBase::putMessage()
+windowBuffer headers
+   id                from                  to                 key               begin                 end
+    0                   1                   0                   0                  51                  57
+
+windowBuffer message
+message[0]
+offset                 ptr              size_t               float              double
+     0         0x1143fc1a0                   4         5.60519e-45        1.97626e-323
+     4         0x1143fc1a4 4812659151798796288                   0         5.71746e+13
+     8         0x1143fc1a8 4813785052826173440                 101         6.59707e+13
+    12         0x1143fc1ac 4814910952733278208                 103         7.91649e+13
+    16         0x1143fc1b0 4816036852640382976                 105          9.6757e+13
+    20         0x1143fc1b4         18301190144                 107        9.04199e-314
+    24         0x1143fc1b8                   4         5.60519e-45        1.97626e-323
+    28         0x113b5a1bc 4688247212092686336                   0              262144
+    32         0x113b5a1c0 4697254412438994944                   9         1.04858e+06
+    36         0x113b5a1c4 4706261611695833088                  11         4.19431e+06
+    40         0x113b5a1c8 4715268810952671232                  13         1.67772e+07
+    44         0x113b5a1cc18446744070512443392                  15                 nan
+
+MPI rank [0/2] sending 4 items to 1
+ 0x1143fc1bc 4817162751426166784                   0         1.14349e+14
+    32         0x1143fc1c0 4818288652454592512                 109         1.31941e+14
+    36         0x1143fc1c4 4819414552361697280                 111          1.5833e+14
+    40         0x1143fc1c8 4820540452268802048                 113         1.93514e+14
+    44         0x1143fc1cc18446744070536953856                 115                 nan
+
+MPI rank [0/2] 0 1 9
+MPI rank [0/2] 1 3 11
+MPI rank [0/2] 2 5 13
+MPI rank [0/2] 3 7 15
+
+MPI rank [0/2] sizes before= 0,0
+MPI rank [0/2] MessageBox::getMessages() : from_rank=1
+MPI rank [1/2] sending 4 items to 0
+MPI rank [1/2] 0 101 109
+MPI rank [1/2] 1 103 111
+MPI rank [1/2] 2 105 113
+MPI rank [1/2] 3 107 115
+
+MPI rank [1/2] sizes before= 0,0
+MPI rank [1/2] MessageBox::getMessages() : from_rank=0
+MPI rank [0/2] readHeaders_:
+   id                from                  to                 key               begin                 end
+    0                   1                   0                   0                  51                  57
+
+MPI rank [0/2] readBuffer:
+   id                from                  to                 key               begin                 end
+    0                   1                   0                   0                  51                  57
+
+MPI rank [1/2] readHeaders_:
+   id                from                  to                 key               begin                 end
+    0                   0                   1                   0                  51                  57
+
+MPI rank [1/2] readBuffer:
+   id                from                  to                 key               begin                 end
+    0                   0                   1                   0                  51                  57
+
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read /0/0x7fddb989d798
+MPI rank [0/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read (4)[ 101 103 105 107 ]
+MPI rank [0/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read /0/0x7fddb989d7b0
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read /0/0x7f86ce8e1998
+MPI rank [1/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read (4)[ 1 3 5 7 ]
+MPI rank [1/2] variable_size_memcpy_able<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read /0/0x7f86ce8e19b0
+MPI rank [1/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read (4)[ 9 11 13 15 ]
+MPI rank [0/2] MessageItem<T=NSt3__16vectorIfNS_9allocatorIfEEEE>::read (4)[ 109 111 113 115 ]
+MPI rank [0/2] sizes after = 4,4
+MPI rank [0/2] 4 items received
+MPI rank [0/2] 0 101 109
+MPI rank [0/2] 1 103 111
+MPI rank [0/2] 2 105 113
+MPI rank [0/2] 3 107 115
+
+MPI rank [0/2] adding elements 1 3 5 7 
+MPI rank [0/2] end of MessageBox scope
+MPI rank [1/2] sizes after = 4,4
+MPI rank [1/2] 4 items received
+MPI rank [1/2] 0 1 9
+MPI rank [1/2] 1 3 11
+MPI rank [1/2] 2 5 13
+MPI rank [1/2] 3 7 15
+
+MPI rank [1/2] adding elements 1 3 5 7 
+MPI rank [1/2] end of MessageBox scope
+MPI rank [1/2] pc [0] 100 108 1 1
+[1] 1 9 1 1
+[2] 102 110 1 1
+[3] 3 11 1 1
+[4] 104 112 1 1
+[5] 5 13 1 1
+[6] 106 114 1 1
+[7] 7 15 1 1
+
+MPI rank [1/2] done
+MPI rank [0/2] pc [0] 0 8 1 1
+[1] 101 109 1 1
+[2] 2 10 1 1
+[3] 103 111 1 1
+[4] 4 12 1 1
+[5] 105 113 1 1
+[6] 6 14 1 1
+[7] 107 115 1 1
+
+MPI rank [0/2] done
+ok = True
+------------------------------------------------------------
+-*# finished #*-
+ok = True
+------------------------------------------------------------
+-*# finished #*-

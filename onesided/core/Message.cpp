@@ -1,6 +1,6 @@
 #include "Message.h"
 
-namespace mpi
+namespace mpi1s
 {
  //-------------------------------------------------------------------------------------------------
  // Implementation of class Message
@@ -8,11 +8,11 @@ namespace mpi
     Message::
     ~Message()
     {
-        if constexpr(verbose) std::cout<<"\nrank"<<::mpi::my_rank<<" ~Message() deleting MessageItems: {";
+        if constexpr(verbose) std::cout<<'\n'<<::mpi1s::info<<"~Message() deleting MessageItems: {"<<std::endl;
         for( auto p : coll_) {
             delete p;
         }
-        if constexpr(verbose) std::cout<<"\n}"<<std::endl;
+        if constexpr(verbose) std::cout<<info<<"~Message() }"<<std::endl;
     }
 
     void
@@ -70,4 +70,4 @@ namespace mpi
         return ss.str();
     }
  //-------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s

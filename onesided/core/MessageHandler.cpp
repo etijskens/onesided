@@ -1,6 +1,6 @@
 #include "MessageHandler.h"
 
-namespace mpi 
+namespace mpi1s
 {
  //------------------------------------------------------------------------------------------------
  // MessageHandlerRegistry implementation
@@ -30,18 +30,37 @@ namespace mpi
         theMessageHandlerRegistry.registerMessageHandler(this);
     }
 
+    MessageHandlerBase::
+    ~MessageHandlerBase()
+    {
+        if constexpr(verbose) std::cout<<::mpi1s::info<<"~MessageHandlerBase()"<<std::endl;
+    }
+
     void
     MessageHandlerBase::
     putMessage(int to_rank)
-    {// construct the message, and put the message in the mpi window
-
+    {// construct the message, and put the message in the mpi1s window
      // compute the length of the message:
         Index_t sz = convertSizeInBytes<sizeof(Index_t)>(message_.messageSize());
-        int from_rank = messageBox_.comm().rank();
+        int const from_rank = ::mpi1s::rank;
         Index_t msgid = -1;
         void* ptr = messageBox_.windowBuffer().allocateMessage( sz, from_rank, to_rank, key_, &msgid );
         message_.write(ptr);
+
+        if constexpr(debug)
+        {
+            std::string s = info + "MessageHandlerBase::putMessage()"
+                                 + "\nwindowBuffer headers\n" + messageBox_.windowBuffer().headersToStr()
+                                 + "\nwindowBuffer message\n" + messageBox_.windowBuffer().messageToStr(msgid);
+            std::cout<<s<<std::endl;
+        }
     }
 
+    void
+    MessageHandlerBase::
+    getMessages()
+    {
+        messageBox_.getMessages();
+    }
  //------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s

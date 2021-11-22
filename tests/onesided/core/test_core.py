@@ -25,13 +25,18 @@ def test_hello():
     print(f"ok = {ok}")
     assert ok
 
-def test_mh():
-    ok = onesided.core.test_mh()
+def test1():
+    ok = onesided.core.test1()
     print(f"ok = {ok}")
     assert ok
 
-def test_mh2():
-    ok = onesided.core.test_mh2()
+def test_2():
+    ok = onesided.core.test2()
+    print(f"ok = {ok}")
+    assert ok
+
+def test_3():
+    ok = onesided.core.test3()
     print(f"ok = {ok}")
     assert ok
 
@@ -48,8 +53,7 @@ if __name__ == "__main__":
     # print(f"__main__ running {the_test_you_want_to_debug} ...")
     # the_test_you_want_to_debug()
     print("------------------------------------------------------------")
-    print(sys.argv)
-    the_test_you_want_to_debug = test_mh2
+    the_test_you_want_to_debug = test_3
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()
     print("------------------------------------------------------------")

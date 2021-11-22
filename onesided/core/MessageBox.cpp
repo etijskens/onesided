@@ -5,7 +5,7 @@
 #include "MessageBox.h"
 #include "MessageHandler.h"
 
-namespace mpi
+namespace mpi1s
 {
  //------------------------------------------------------------------------------------------------
  // class MessageBox implementation
@@ -16,7 +16,6 @@ namespace mpi
       , size_t max_msgs   // maximum number of messages that can be stored. 
                           // This defines the size of the header section.
       )
-      : comm_(MPI_COMM_WORLD)      
     {
      // Create an MPI window and allocate memory for it
         size_t total_size = (1 + max_msgs * MessageBuffer::HEADER_SIZE) + bufferSize ;
@@ -28,12 +27,12 @@ namespace mpi
                 ( static_cast<MPI_Aint>( total_size * sizeof(Index_t) ) // The size of the memory area exposed through the window, in bytes.
                 , sizeof(Index_t) // The displacement unit is used to provide an indexing feature during RMA operations. 
                 , MPI_INFO_NULL   // MPI_Info object
-                , comm_.comm()    // MPI_Comm communicator
+                , MPI_COMM_WORLD  // MPI_Comm communicator
                 , &pWindowBuffer  // pointer to allocated memory
                 , &window_        // pointer to the MPI_Win object
                 );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = comm_.str() + "MPI_Win_allocate failed.";
+            std::string errmsg = info + "MPI_Win_allocate failed.";
             throw std::runtime_error(errmsg);
         }
 
@@ -52,10 +51,10 @@ namespace mpi
     MessageBox::
     ~MessageBox()
     {// free resources.     
-        if constexpr(verbose) std::cout<<"\nrank"<<::mpi::my_rank<<" ~MessageBox() {";
+        if constexpr(verbose) std::cout<<'\n'<<::mpi1s::info<<"~MessageBox()"<<std::endl;
         int success = MPI_Win_free(&window_);
         if constexpr(verbose) { 
-            std::cout<<" MPI_Win_free(&window_) success = "<<(success == MPI_SUCCESS)<<" }"<<std::endl;
+            std::cout<<info<<"~MessageBox(): MPI_Win_free(&window_) success = "<<(success == MPI_SUCCESS)<<std::endl;
         }
     }
 
@@ -63,10 +62,10 @@ namespace mpi
     MessageBox::
     getMessages()
     {
-        int const my_rank = comm().rank();
-        int const nranks  = comm().size();
-     // loop over all ranks, starting with the left neighbour:
-        int left = (my_rank - 1 + nranks) % nranks;
+        int const my_rank = ::mpi1s::rank;
+        int const nranks  = ::mpi1s::size;
+     // loop over all ranks, starting with the left neighbour, and moving to the right:
+        int left = next_rank(-1);
         for( int i = 0; i < nranks; ++i)
         {// Clear the readHeaders_ and readBuffer_ buffers:
             readHeaders_.clear();
@@ -75,15 +74,16 @@ namespace mpi
             int from_rank = (left + i) % nranks;
             if( from_rank != my_rank ) // skip my rank
             {
-                std::cout<<"from_rank="<<from_rank<<std::endl;
-                {   Epoch(*this,0);
+                std::cout<<::mpi1s::info<<"MessageBox::getMessages() : from_rank="<<from_rank<<std::endl;
+                {   Epoch(*this, 0, "MessageBox::getHeaders_()");
                  // copy the header section from from_rank into the readHeaders_
                     getHeaders_(from_rank);
                 }// close the epoch
+                if constexpr(debug) std::cout<<info+"readHeaders_:\n"+readHeaders_.headersToStr()<<std::endl;
 
              // The epoch is closed, so the header is available   
                 {// get all messages in the header which are for me
-                    Epoch(*this,0);
+                    Epoch(*this, 0, "for(m) { MessageBox::getMessage_(m); }");
                     for( Index_t m = 0; m < readHeaders_.nMessages(); ++m ) {
                         if( readHeaders_.messageDestination(m) == my_rank )
                         {// get the message and store it in the read buffer
@@ -91,14 +91,20 @@ namespace mpi
                         }
                     }
                 }// close the Epoch
+             // The epoch is closed, so the raw messages are available
+             // read the messages (by fetching the appropriate MessageHandler)
 
-             // The epoch is closed, so the raw messages are available   
-             // Fetch the message handler for the message and read the message
+                if constexpr(debug) {
+                    std::cout<<info+"readBuffer:\n"+readBuffer_.headersToStr()<<std::endl;
+                    for( Index_t m = 0; m < readBuffer_.nMessages(); ++m ) {
+                        readBuffer_.messageToStr(m);
+                    }
+                }
                 for( Index_t m = 0; m < readBuffer_.nMessages(); ++m ) {
                     readMessage_(m);
                 }
             }
-        }  
+        }
     }
 
     void
@@ -119,7 +125,7 @@ namespace mpi
           , window_                     // window
           );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = comm_.str() + "MPI_get failed, while getting header from rank " + std::to_string(from_rank) + ".";
+            std::string errmsg = ::mpi1s::info + "MPI_get failed, while getting header from rank " + std::to_string(from_rank) + ".";
             throw std::runtime_error(errmsg);
         }
     }
@@ -153,7 +159,7 @@ namespace mpi
             , window_                                // window
             );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = comm_.str() + "MPI_get failed (getting message).";
+            std::string errmsg = ::mpi1s::info + "MPI_get failed (getting message).";
             throw std::runtime_error(errmsg);
         }
         return to_msgid;        
@@ -230,9 +236,15 @@ namespace mpi
  // class Epoch implementation
  //------------------------------------------------------------------------------------------------
     Epoch::
-    Epoch(MessageBox& mb, int assert=0) // not sure whether assert is useful
+    Epoch
+      ( MessageBox& mb
+      , int assert=0    // not sure whether assert is useful
+      , char const* msg // message, ignored if ::mpi1s::verbose == false.
+      )
       : mb_(mb)
+      , msg_(msg)
     {
+        if constexpr(verbose) std::cout<<info<<"Opening MPI window (Epoch)  "<<msg_<<std::endl;
         MPI_Win_fence(assert, mb_.window());
     }
 
@@ -240,8 +252,9 @@ namespace mpi
     ~Epoch()
     {
         MPI_Win_fence(0, mb_.window());
+        if constexpr(verbose) std::cout<<info<<"Closing MPI window (~Epoch) "<<msg_<<std::endl;
     }
-}// namespace mpi
+}// namespace mpi1s
 
 
 //  //---------------------------------------------------------------------------------------------------------------------

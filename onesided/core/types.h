@@ -1,7 +1,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-namespace mpi 
+namespace mpi1s
 {
     typedef int64_t Index_t; // copied from Primitives/Types/Index.h
 
@@ -11,6 +11,6 @@ namespace mpi
      // that it can be stored in the header section of MessageBuffers. Therefor, it must be
      // of fixed size, and, preferentially, a size that is a multiple of sizeof(Index_t).
 
-}// namespace mpi
+}// namespace mpi1s
 
 #endif // TYPES_H

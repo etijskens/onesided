@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace mpi
+namespace mpi1s
 {// Although nothing in this file uses MPI, it is necessary machinery for the MPI messageing 
  // system that we need
  
@@ -48,18 +48,20 @@ namespace mpi
 
         ~MessageItem()
         {
-            if constexpr(verbose) std::cout<<"\n  rank"<<::mpi::my_rank<<" destroying MessageItem<T> "<<typeid(T).name()<<" @ "<<this;
+            if constexpr(verbose) std::cout<<"  "<<info<<" destroying MessageItem<T="<<typeid(T).name()<<"> @ "<<this<<std::endl;
         }
 
         virtual void write(void*& ptr) const {
-            ::mpi::write( *ptrT_, ptr );
+            if constexpr(debug) std::cout<<info<<"MessageItem<T="<<typeid(T).name()<<">::write "<<toStr()<<std::endl;
+            ::mpi1s::write( *ptrT_, ptr );
         }
         virtual void read(void*& ptr) {
-            ::mpi::read( *ptrT_, ptr );
+            ::mpi1s::read( *ptrT_, ptr );
+            if constexpr(debug) std::cout<<info<<"MessageItem<T="<<typeid(T).name()<<">::read "<<toStr()<<std::endl;
         }
      // Size that *ptrT_ will occupy in a message, in bytes
         virtual size_t messageSize() const {
-            return ::mpi::messageSize(*ptrT_);
+            return ::mpi1s::messageSize(*ptrT_);
         }
         virtual std::string toStr() const
         {
@@ -101,10 +103,10 @@ namespace mpi
             coll_.push_back(p);
         }
 
-    // Write the message to ptr (=buffer)
+    // Write the message to ptr (=buffer)
         void write(void*& ptr) const;
         
-    // Read the message from ptr (=buffer)
+    // Read the message from ptr (=buffer)
         void read (void*& ptr);
 
     // Compute the size of the message, in bytes.
@@ -117,6 +119,6 @@ namespace mpi
         std::vector<MessageItemBase*> coll_;
     };
  //-------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 
 #endif // MESSAGE_H

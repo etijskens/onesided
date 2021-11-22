@@ -5,7 +5,7 @@
 
 #define FILL_BUFFER
 
-namespace mpi
+namespace mpi1s
 {   
  //------------------------------------------------------------------------------------------------
  // Implementation of class MessageBuffer       
@@ -23,8 +23,7 @@ namespace mpi
     ~MessageBuffer()
     {
         if constexpr(verbose) {
-            std::cout<<"rank"<<::mpi::my_rank<<" ~MessageBuffer() "<<pBuffer_<<'['<<bufferSize_<<"] owned="<<bufferOwned_;
-            
+            std::cout<<info<<"~MessageBuffer() "<<pBuffer_<<'['<<bufferSize_<<"] owned="<<bufferOwned_;
         }
         if( bufferOwned_ ) {
             delete[] pBuffer_;
@@ -84,14 +83,14 @@ namespace mpi
     void*                         // returns pointer to the reserved memory in the MessageBuffer
     MessageBuffer::
     allocateMessage
-      ( Index_t  sz             // the size of the message, in bites
+      ( Index_t  sz             // the size of the message, in bytes
       , int      from_rank      // the source of the message
       , int      to_rank        // the destination of the message
       , MessageHandlerKey_t key // the key of the object responsible for reading the message
       , Index_t* the_msgid      // on return contains the id of the allocated message, if provided
       )
     {
-        // std::cout<<headers(true)<<std::endl;
+        // std::cout<<headersToStr(true)<<std::endl;
 
         Index_t msgid = nMessages();
         if( the_msgid ) {
@@ -103,29 +102,30 @@ namespace mpi
         setMessageDestination(msgid, to_rank);
         setMessageHandlerKey (msgid, key);
 
-     // The begin of the message is already set. Only the end must be set. 
-        Index_t end = messageBegin(msgid) + sz;
+     // The begin of the message is already set. Only the end must be set.
+        Index_t szIndex_t = (sz + (sizeof(Index_t) - 1))/sizeof(Index_t);
+        Index_t end = messageBegin(msgid) + szIndex_t;
         setMessageEnd( msgid, end );
      // Set the begin of the next message (so that the comment above is remains true).
      // The begin of the next message is end of this message.
         setMessageBegin( msgid + 1, end ); 
 
-        // std::cout<<headers(true)<<std::endl;
+        // std::cout<<headersToStr(true)<<std::endl;
 
         return ( headersOnly_ ? nullptr : messagePtr(msgid) );
     }
 
     std::string 
     MessageBuffer::
-    headers(bool verbose) const
+    headersToStr(bool verbose) const
     {
         std::stringstream ss;
         Index_t n = verbose ? maxMessages() : nMessages();
         // std::cout<<nMessages()<<'/'<<maxMessages()<<std::endl;
-        ss<<std::setw(4)<<"id"<<std::setw(20)<<"from"<<std::setw(20)<<"to"<<std::setw(20)<<"key"<<std::setw(20)<<"begin"<<std::setw(20)<<"end"<<'\n';
+        ss<<std::setw(5)<<"id"<<std::setw(20)<<"from"<<std::setw(20)<<"to"<<std::setw(20)<<"key"<<std::setw(20)<<"begin"<<std::setw(20)<<"end"<<'\n';
         for( Index_t i = 0; i < n; ++i ) {
-            ss<<std::setw(4)<<i
-              << ('+' ? i < n : '-')
+            ss<< ( i < maxMessages() ? ' ' : 'x')
+              <<std::setw(4)<<i
               <<std::setw(20)<<messageSource     (i)
               <<std::setw(20)<<messageDestination(i)
               <<std::setw(20)<<messageHandlerKey (i)
@@ -136,5 +136,32 @@ namespace mpi
         return ss.str();
     }
 
+    std::string
+    MessageBuffer::
+    messageToStr
+      ( Index_t msg_id // message index
+      )
+    {// incomplete implementation. Must make sure that strings have a lengh
+        Index_t msg_szb = messageSize(msg_id); // in bytes
+        void*   msg_ptr = messagePtr (msg_id);
+        std::stringstream ss;
+        ss<<"message["<<msg_id<<"]\n"
+          <<std::setw( 6)<<"offset"
+          <<std::setw(20)<<"ptr"
+          <<std::setw(20)<<"size_t"
+          <<std::setw(20)<<"float"
+          <<std::setw(20)<<"double"
+          <<'\n';
+
+        for( Index_t offset=0; offset < msg_szb; offset += sizeof(float) ) {
+            ss<<std::setw( 6)<<offset
+              <<std::setw(20)<<static_cast<float*>(msg_ptr) + offset/sizeof(float)
+              <<std::setw(20)<<interpretAs<size_t>(msg_ptr, offset)
+              <<std::setw(20)<<interpretAs<float  >(msg_ptr, offset)
+              <<std::setw(20)<<interpretAs<double >(msg_ptr, offset)
+              <<'\n';
+        }
+        return ss.str();
+    }
  //------------------------------------------------------------------------------------------------
 }

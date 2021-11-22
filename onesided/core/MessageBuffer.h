@@ -2,11 +2,23 @@
 #define MESSAGEBUFFER_H
 
 #include <vector>
+#include <sstream>
+#include <iomanip>
 #include "types.h"
 
 
-namespace mpi 
+namespace mpi1s
 {
+    template<typename T>
+    T&
+    interpretAs
+      ( void * ptr    // ptr to begin of a message in a buffer
+      , size_t offset // offset relative to ptr, in bytes
+      )
+    {
+        T* ptrT = (T*)((char*)(ptr) + offset );
+        return *ptrT;
+    }
 
  //------------------------------------------------------------------------------------------------
     class MessageBuffer
@@ -49,7 +61,7 @@ namespace mpi
         void*                        // returns pointer to the reserved memory in the MessageBuffer, or
                                      // nullptr if this is a headers only buffer
         allocateMessage
-          ( Index_t  sz              // the size of the message, in bites
+          ( Index_t  sz              // the size of the message, in bytes
           , int      from_rank       // the source of the message
           , int      to_rank         // the destination of the message
           , MessageHandlerKey_t key  // the key of the object responsible for reading the message
@@ -71,8 +83,9 @@ namespace mpi
         inline int     messageSource      (Index_t msgid) const { return pBuffer_[1 + HEADER_SIZE * msgid + MSG_SRC]; }
         inline Index_t messageHandlerKey  (Index_t msgid) const { return pBuffer_[1 + HEADER_SIZE * msgid + MSG_KEY]; }
 
-        inline Index_t messageSize(Index_t msgid) const { return messageEnd(msgid) - messageBegin(msgid); }
-        inline void*   messagePtr (Index_t msgid) const { return &pBuffer_[messageBegin(msgid)]; }
+        inline Index_t messageSize  (Index_t msgid) const { return (messageEnd(msgid) - messageBegin(msgid))*sizeof(Index_t); } // in bytes
+        inline void*   messagePtr   (Index_t msgid) const { return &pBuffer_[messageBegin(msgid)]; }
+        inline void*   messagePtrEnd(Index_t msgid) const { return &pBuffer_[messageEnd  (msgid)]; }
 
      // The setters work only on the buffer in the MPI window
         inline void
@@ -109,19 +122,26 @@ namespace mpi
         }
          
      // Intelligible string representation of the header section 
-        std::string headers(bool verbose = false) const;
+        std::string headersToStr(bool verbose = false) const;
 
-      private:
+     // string representation of a message as an array of T
+        std::string
+        messageToStr
+          ( Index_t msg_id // message index
+          );
+
+    private:
         void initialize_();
 
-     private:
+    public:
         Index_t *pBuffer_;
+    private:
         size_t bufferSize_;
         bool bufferOwned_;
         bool headersOnly_;
         size_t maxmsgs_;
      };
  //------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 
 #endif // MESSAGEBUFFER_H

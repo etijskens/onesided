@@ -5,7 +5,7 @@
 #include <mpi.h>
 #include "memcpy_able.h"
 
-namespace mpi
+namespace mpi1s
 {//------------------------------------------------------------------------------------------------
     class Communicator
  // A wrapper class for MPI_Comm handles
@@ -37,6 +37,6 @@ namespace mpi
         int size_;
     };
  //------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 
 #endif // COMMUNICATOR_H

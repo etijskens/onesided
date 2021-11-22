@@ -1,5 +1,5 @@
 #include "Communicator.h"
-namespace mpi
+namespace mpi1s
 {
  //------------------------------------------------------------------------------------------------
  // class Communicator implementation
@@ -12,7 +12,7 @@ namespace mpi
     {
         MPI_Comm_size(comm_, &size_);
         MPI_Comm_rank(comm_, &rank_);
-        ::mpi::my_rank = rank_;
+        ::mpi1s::my_rank = rank_;
     }
 
     std::string

@@ -8,12 +8,9 @@
 
 typedef int64_t Index_t;
 
-namespace mpi
+namespace mpi1s
 {//-------------------------------------------------------------------------------------------------
-    bool const verbose = true; // compile time constant restricted to this namespace.
-    int my_rank = -1;
- //-------------------------------------------------------------------------------------------------    
-   namespace internal 
+   namespace internal
     {// This contains the machinery 
      //-------------------------------------------------------------------------------------------------
         template<typename T>
@@ -90,22 +87,34 @@ namespace mpi
                             // the end of what was written, so the next object can be written to that position.
               ) 
             {
+
                 if constexpr(fixed_size_memcpy_able<T>::value)
-                {// write the variable t
-                    memcpy( dst, ptr(t), sizeof(t) );
+                {
+                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::write /0/"<<dst<<std::endl;
+                 // write the variable t
+                    auto nBytes = sizeof(t);
+                    memcpy( dst, ptr(t), nBytes );
                  // advance the pointer in the buffer
-                    dst = (Index_t*)(dst) + sizeof(t);
+                    dst = (char*)(dst) + nBytes;
+                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
+
                 }
                 else if constexpr(variable_size_memcpy_able<T>::value)
-                {// write the size of the collection:
+                {
+                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /0/"<<dst<<std::endl;
+                 // write the size of the collection:
                     size_t size = t.size();
-                    memcpy( dst, &size, sizeof(size_t) );
+                    auto nBytes = sizeof(size_t);
+                    memcpy( dst, &size, nBytes );
                  // advance the pointer in the buffer
-                    dst = (Index_t*)(dst) + sizeof(size_t);
+                    dst = (char*)(dst) + nBytes;
+                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
                  // write the collection:
-                    memcpy( dst, &t[0], size * sizeof(T) );
+                    nBytes = size * sizeof(typename T::value_type);
+                    memcpy( dst, &t[0], nBytes );
                  // advance the pointer in the buffer
-                    dst = (Index_t*)(dst) + size * sizeof(size_t);
+                    dst = (char*)(dst) + nBytes;
+                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /2/"<<dst<<"=+"<<nBytes<<std::endl;
                 }
                 else
                     static_assert(fixed_size_memcpy_able<T>::value || variable_size_memcpy_able<T>::value, "type T is not memcpy-able");
@@ -119,23 +128,31 @@ namespace mpi
               ) 
             {
                 if constexpr(fixed_size_memcpy_able<T>::value)
-                {// read the variable t
-                    memcpy( ptr(t), src, sizeof(t) );
+                {
+                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::read /0/"<<src<<std::endl;
+                 // read the variable t
+                    auto nBytes = sizeof(t);
+                    memcpy( ptr(t), src, nBytes );
                  // advance the pointer in the buffer
-                    src = (Index_t*)(src) + sizeof(t);
+                    src = (char*)(src) + nBytes;
+                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::reead /1/"<<src<<"=+"<<nBytes<<std::endl;
                 }
                 else if constexpr(variable_size_memcpy_able<T>::value)
-                {// read the size of the collection:
+                {
+                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::read /0/"<<src<<std::endl;
+                 // read the size of the collection:
+                   auto nBytes = sizeof(size_t);
                     size_t size;
-                    memcpy( &size, src, sizeof(size_t) );
+                    memcpy( &size, src, nBytes );
                  // advance the pointer in the buffer
-                    src = (Index_t*)(src) + sizeof(size_t);
+                    src = (char*)(src) + nBytes;
                  // resize the collection
                     t.resize(size);
                  // read the collection:
-                    memcpy( &t[0], src, size * sizeof(T) );
+                    nBytes = size * sizeof(typename T::value_type);
+                    memcpy( &t[0], src, nBytes );
                  // advance the pointer in the buffer
-                    src = (Index_t*)(src) + size * sizeof(size_t);
+                    src = (char*)(src) + nBytes;
                 }
                 else
                     static_assert(fixed_size_memcpy_able<T>::value || variable_size_memcpy_able<T>::value, "type T is not memcpy-able");
@@ -156,7 +173,7 @@ namespace mpi
                    // object will be written, i.e. just behind t in the message buffer.
       )
     {
-        internal::memcpy_traits<T>::write(t,dst);
+            internal::memcpy_traits<T>::write(t,dst);
     }
 
     template <typename T>
@@ -180,5 +197,5 @@ namespace mpi
         return internal::memcpy_traits<T>::messageSize(t);
     }
  //-------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 #endif // MEMCPY_ABLE_H

@@ -4,12 +4,12 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
-#include "Communicator.h"
+#include "mpi1s.h"
 #include "MessageBuffer.h"
 // #include "MessageHandler.h"
 
 
-namespace mpi 
+namespace mpi1s
 {
  //------------------------------------------------------------------------------------------------
     class MessageBox
@@ -66,15 +66,14 @@ namespace mpi
           );
 
     public: // data member accessors
-        inline MessageBuffer& windowBuffer() {return windowBuffer_;}
+        inline MessageBuffer& windowBuffer() { return windowBuffer_; }
+        inline MessageBuffer&   readBuffer() { return   readBuffer_; }
         inline MPI_Win window() { return window_; }
-        inline Communicator const & comm() const { return comm_; }
-        
+
     private:
-        Communicator comm_;
         MPI_Win  window_;
         MessageBuffer windowBuffer_; // its memory is allocated by MPI_Win_allocate
-        MessageBuffer readHeaders_;   // its memory is allocated by new Index_t[]
+        MessageBuffer readHeaders_;  // its memory is allocated by new Index_t[]
         MessageBuffer readBuffer_;   // its memory is allocated by new Index_t[]
     };
 
@@ -100,13 +99,22 @@ namespace mpi
  //------------------------------------------------------------------------------------------------
     {
       public:
-        Epoch(MessageBox& mb, int assert); // open an epoch for MessageBox mb
-        ~Epoch();                          // close the epoch
+     // Open an epoch for the MPI window of MessageBox mb
+        Epoch
+          ( MessageBox& mb          // the MessageBox whose MPI window is going to be opened.
+          , int assert              // argument for MPI_Win_fence
+          , char const* msg = ""
+          );
+
+     // close the epoch
+        ~Epoch();
+
       private:
         Epoch(Epoch const &); // prevent object copy
         MessageBox& mb_;
+        char const* msg_;
     };
  //------------------------------------------------------------------------------------------------
-}// namespace mpi
+}// namespace mpi1s
 
 #endif // MESSAGEBOX_H
