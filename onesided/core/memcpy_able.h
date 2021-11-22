@@ -11,7 +11,17 @@ typedef int64_t Index_t;
 namespace mpi1s
 {//-------------------------------------------------------------------------------------------------
    namespace internal
-    {// This contains the machinery 
+    {// This contains the machinery
+     //-------------------------------------------------------------------------------------------------
+     // move a void pointer ptr by nBytes bytes
+
+        inline void
+        advance_void_ptr
+          ( void*& ptr      // pointer to be advanced
+          , size_t nBytes   // in bytes
+          ) {
+            ptr = (char*)(ptr) + nBytes;
+        }
      //-------------------------------------------------------------------------------------------------
         template<typename T>
         struct fixed_size_memcpy_able : std::is_trivially_copyable<T> {};
@@ -95,7 +105,7 @@ namespace mpi1s
                     auto nBytes = sizeof(t);
                     memcpy( dst, ptr(t), nBytes );
                  // advance the pointer in the buffer
-                    dst = (char*)(dst) + nBytes;
+                    advance_void_ptr(dst, nBytes);
                     if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
 
                 }
@@ -107,13 +117,13 @@ namespace mpi1s
                     auto nBytes = sizeof(size_t);
                     memcpy( dst, &size, nBytes );
                  // advance the pointer in the buffer
-                    dst = (char*)(dst) + nBytes;
+                    advance_void_ptr(dst, nBytes);
                     if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
                  // write the collection:
                     nBytes = size * sizeof(typename T::value_type);
                     memcpy( dst, &t[0], nBytes );
                  // advance the pointer in the buffer
-                    dst = (char*)(dst) + nBytes;
+                    advance_void_ptr(dst, nBytes);
                     if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /2/"<<dst<<"=+"<<nBytes<<std::endl;
                 }
                 else
@@ -134,25 +144,25 @@ namespace mpi1s
                     auto nBytes = sizeof(t);
                     memcpy( ptr(t), src, nBytes );
                  // advance the pointer in the buffer
-                    src = (char*)(src) + nBytes;
+                    advance_void_ptr(src, nBytes);
                     if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::reead /1/"<<src<<"=+"<<nBytes<<std::endl;
                 }
                 else if constexpr(variable_size_memcpy_able<T>::value)
                 {
                     if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::read /0/"<<src<<std::endl;
                  // read the size of the collection:
-                   auto nBytes = sizeof(size_t);
+                    auto nBytes = sizeof(size_t);
                     size_t size;
                     memcpy( &size, src, nBytes );
                  // advance the pointer in the buffer
-                    src = (char*)(src) + nBytes;
+                    advance_void_ptr(src, nBytes);
                  // resize the collection
                     t.resize(size);
                  // read the collection:
                     nBytes = size * sizeof(typename T::value_type);
                     memcpy( &t[0], src, nBytes );
                  // advance the pointer in the buffer
-                    src = (char*)(src) + nBytes;
+                    advance_void_ptr(src, nBytes);
                 }
                 else
                     static_assert(fixed_size_memcpy_able<T>::value || variable_size_memcpy_able<T>::value, "type T is not memcpy-able");

@@ -399,7 +399,7 @@ namespace test3
         ss<<info<<"pc ";
         for(size_t i=0; i<pc.size(); ++i ) {
             if( pc.is_alive(i) ) {
-                ss<<'['<<i<<"] "<<pc.r[i]<<' '<<pc.m[i]<<' ';
+                ss<<'['<<i<<"] "<<std::setw(4)<<pc.r[i]<<std::setw(4)<<pc.m[i]<<' ';
             }
          // verify contents:
             int const   my_rank = mpi1s::rank;
