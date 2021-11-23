@@ -1,6 +1,7 @@
 ### Thoughts on non-contiguous data and one-sided communications
 
-#### why do we use MPI_Get instead of MPI_Put?
+#### why do we use MPI_Get instead of MPI_Put? Or, is onesided communication 
+even the best solution possible?
 
 MPI_Get requires peeking into **every** other rank to see if it has any messages 
 for me... That means that the communication scales as the square of the number of 
@@ -17,8 +18,12 @@ destination's window. The problem is that when two processes are putting into th
 same window, there is now way of knowing where to put the two messages in a way that 
 they do not interfere.
 
-As a solution for this, we could use two-sided onne-to-all communication for the 
-headers, and one-sided MPI_Get for the message contents. 
+As a solution for this, we could use two-sided communication MPI_Bcast to send the 
+message headers to all other processors. This is almost surely more efficient than
+the above *N x N MPI_Get* approach. Furthermore, After this, again two-sided 
+point-to-point communication can be used to communicate the message as the receiving 
+ends now know what to receive. (Note that you can use a non-blocking send, and pair 
+it with a blocking receive). 
 
 #### Contiguous data
 
@@ -80,3 +85,6 @@ side. As AoS means that the loop over the element indices (which are stored as a
 contiguous list) is made only once, we suspect that there are a little less cache 
 misses than with SoA.
 
+### Useful links
+
+- https://stackoverflow.com/questions/26166879/does-mpi-send-need-to-be-called-before-the-corresponding-mpi-recv
