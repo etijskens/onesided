@@ -1,14 +1,24 @@
-### reflection
+### Thoughts on non-contiguous data and one-sided communications
 
-#### why did wee use MPI_Get? rather than MPI_Put?
+#### why do we use MPI_Get instead of MPI_Put?
 
-MPI_Get requires peeking into every other rank to see if it has something to tell 
-to me...
+MPI_Get requires peeking into **every** other rank to see if it has any messages 
+for me... That means that the communication scales as the square of the number of 
+processes, N. This is not so good, even if, initially at least, we expect N to be 
+rather small, say ~10-20. Note that this is in principle *N x one-to-all* 
+communication, which can be optimised by the MPI implementation. It is, however,
+doubtfull that the MPI implementation can recognise this pattern, so it will 
+most probably be executed as an *N x N x one-to-one* communication, which is not
+optimised. This pattern does not exploit the fact that every rank knows to whom 
+it must send a message. 
 
-Every rank knows for whom a message is, so, it could directly put it in the 
+However, every rank knows for whom a message is, so, it could directly put it in the 
 destination's window. The problem is that when two processes are putting into the 
 same window, there is now way of knowing where to put the two messages in a way that 
-they do not interfere. 
+they do not interfere.
+
+As a solution for this, we could use two-sided onne-to-all communication for the 
+headers, and one-sided MPI_Get for the message contents. 
 
 #### Contiguous data
 
@@ -25,8 +35,10 @@ of a list (std::vector) of contiguous data items.
 However, what we will mostly need is moving or copying a set of particles in a 
 particle container to another proces (the receiving end). At the receiving end, 
 the particles must be created and initialized with the data in the message. On the
-sending side, the particles will be kept, as for ghost particles, or removed, as 
-for leaving particles. Thus, this type of MessageHandler is ***asymmetrical***. 
+sending side, the particles will be kept, as for ghost particles of the domain, or
+removed, as for particles leaving the domain. Thus, this type of MessageHandler is 
+***asymmetrical*** in the sense that the memory location of the source and 
+destination of the data differs, i.e. they are held in a different variable.
 If we can manage to put particle after particle in the window, i.e. 
 
     x[i0], v[i0], a[i0], r[i0], m[i0], ...,
@@ -58,4 +70,13 @@ This could be an approach:
 In principle, it should be possible to only send the length of the index array. 
 The indices themselves are useless, as they must be replaced by indices of new 
 particles. This makes the message a little shorter. 
+
+Another question that is to be solved, is wether the particle properties need to 
+be sent as SoA or AoS. If we want to avoid copying the noncontiguous data into a 
+contiguous data array (which is what we did so far), we need a memcopy for each 
+particle property and each element: from the particle container to the window on 
+the sending side, and from the readBuffer to the particle container on the reading 
+side. As AoS means that the loop over the element indices (which are stored as a 
+contiguous list) is made only once, we suspect that there are a little less cache 
+misses than with SoA.
 
