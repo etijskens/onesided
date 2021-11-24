@@ -31,18 +31,6 @@ namespace mpi1s
           );
          ~MessageBox();
 
-    //  // Allocate resources in the windowBuffer_ for a message: 
-    //  //   - reserve space for a message of size sz to be posted
-    //  //   - make a header for that message
-    //     void*                          // pointer to the reserved memory in the windowBuffer_
-    //     allocateMessage
-    //       ( Index_t sz                 // the size of the message, in bites
-    //       , int     to_rank            // the destination of the message
-    //       , MessageHandlerBase::
-    //         key_type messageHandlerKey // the key of the object responsible for reading the message
-    //       , Index_t* msgid = nullptr   //  on return contains the id of the allocated message, if provided
-    //       );
-
      // Get all messages for this rank from all other ranks 
         void getMessages();
 
