@@ -62,8 +62,8 @@ namespace mpi1s
                                      // nullptr if this is a headers only buffer
         allocateMessage
           ( Index_t  sz              // the size of the message, in bytes
-          , int      from_rank       // the source of the message
-          , int      to_rank         // the destination of the message
+          , int      from_rank       // the source of the message (=MPI rank)
+          , int      to_rank         // the destination of the message (=MPI rank)
           , MessageHandlerKey_t key  // the key of the object responsible for reading the message
           , Index_t* msgid = nullptr // on return contains the id of the allocated message, if provided
           );

@@ -25,6 +25,24 @@ point-to-point communication can be used to communicate the message as the recei
 ends now know what to receive. (Note that you can use a non-blocking send, and pair 
 it with a blocking receive). 
 
+What needs to be modified to turn the one-sided approach into a two-sided approach?
+
+- we do no longer need a MessageBox class but the buffers need to be stored 
+  somewhere, as well as the functions for communiation 
+- we need a header buffer for every other process, 
+- we need a message buffer for every other process, or reuse the message buffers.
+  Can we afford a message buffer for every process? I guess not, this is also a 
+  scaling issue.
+- header buffers and message buffers may be separated.
+- the MessageHandlerBase class does not need a MessageBox class
+
+The MessageBox object could be replaced with a Broadcaster object: it stores the 
+buffers, broadcasts the headers, and acts upon the received headers.
+
+##### Plan
+
+1. Split header and message buffers because they are sent separately (?)
+
 #### Contiguous data
 
 The data item (or contiguous data items) is memcpy-ed into the processor's window.

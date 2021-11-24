@@ -6,8 +6,8 @@
 namespace mpi1s // shorthand for mpi-onesided
 {//---------------------------------------------------------------------------------------------------------------------
  // compile time constants restricted to this namespace. Set to true for debugging.
-    bool const verbose = false;
-//    bool const verbose = true;
+//    bool const verbose = false;
+    bool const verbose = true;
     bool const debug = true;
 
  // These global variables are set by mpi1s::init()

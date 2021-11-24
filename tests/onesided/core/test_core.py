@@ -40,7 +40,16 @@ def test_3():
     print(f"ok = {ok}")
     assert ok
 
-# @pytest.mark.mpi(minsize=3)
+def test_4():
+    ok = onesided.core.test4()
+    print(f"ok = {ok}")
+    assert ok
+
+def test_5():
+    ok = onesided.core.test5()
+    print(f"ok = {ok}")
+    assert ok
+
 
 
 #===============================================================================
@@ -53,7 +62,7 @@ if __name__ == "__main__":
     # print(f"__main__ running {the_test_you_want_to_debug} ...")
     # the_test_you_want_to_debug()
     print("------------------------------------------------------------")
-    the_test_you_want_to_debug = test_3
+    the_test_you_want_to_debug = test_5
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()
     print("------------------------------------------------------------")

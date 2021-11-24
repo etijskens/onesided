@@ -436,6 +436,181 @@ namespace test3
  //---------------------------------------------------------------------------------------------------------------------
 }// namespace test3
 
+namespace test4
+{//---------------------------------------------------------------------------------------------------------------------
+    bool test()
+    {// This test broadcasts an array in which every rank has initialized its own section: a[rank*5:rank*5+5]
+     // After broadcasting the array is complete on every rank
+        mpi1s::init();
+
+     // // Get number of processes and check that 3 processes are use
+        if(mpi1s::size != 3)
+        {
+            printf("This application is meant to be run with 3 MPI processes.\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+        bool ok = true;
+        int a[15];
+        for(size_t i = 0; i < 15; ++i) {
+            a[i] = 0;
+        }
+        for( int rank=0; rank<3; ++rank) {
+            if (rank == mpi1s::rank) {
+                for(size_t i = rank*5; i < rank*5 + 5; ++i) {
+                    a[i] = i;
+                }
+            }
+        }
+        std::stringstream ss;
+        ss<<info;
+        for(size_t i = 0; i < 15; ++i) {
+            ss<<a[i]<<' ';
+        }   std::cout<<ss.str()<<std::endl;
+
+        for( int rank=0; rank<3; ++rank) {
+            MPI_Bcast(&a[rank*5], 5, MPI_INT, rank, MPI_COMM_WORLD);
+            std::stringstream ss;
+            ss<<info<<rank<<':';
+            for(size_t i = 0; i < 15; ++i) {
+                ss<<a[i]<<' ';
+            }   std::cout<<ss.str()<<std::endl;
+        }
+        for(size_t i = 0; i < 15; ++i) {
+            ok &= a[i] == i;
+            if( !ok ) std::cout<<info<<"oops"<<std::endl;
+        }
+        mpi1s::finalize();
+
+        std::cout<<info<<"ok="<<ok<<std::endl;
+
+        return ok;
+    }
+ //---------------------------------------------------------------------------------------------------------------------
+}// namespace test4
+
+namespace test5
+{//---------------------------------------------------------------------------------------------------------------------
+    void print_a(char const* msg, int const * const a)
+    {
+        std::stringstream ss;
+        ss<<info + msg;
+        for(size_t i = 0; i < 15; ++i) {
+            ss<<a[i]<<' ';
+        }   ss<<'\n';
+        printf( "%s", ss.str().data() );
+    }
+
+    bool test()
+    {// This test broadcasts an array in which every rank has initialized its own section:
+     // rank 0 : 0 1 2 3 0 0 0 0 0 0 0 0 0 0 0
+     // rank 1 : 4 5 6 7 8 0 0 0 0 0 0 0 0 0 0
+     // rank 2 : 9 10 11 12 13 14 0 0 0 0 0 0 0 0 0
+     // After broadcasting the array is complete on every rank, the values are not in sorted order.
+     // Note that each rank broadcasts a different number of items (resp. 4, 5 and 6) and the the buffer on the
+     // receiving end does not use the same memory location. So, after broadcasting, every rank has all the values
+     // but not in the sorted order. (But this is intentially so).
+        mpi1s::init();
+
+     // // Get number of processes and check that 3 processes are used
+        if(mpi1s::size != 3)
+        {
+            printf("This application is meant to be run with 3 MPI processes.\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+        bool ok = true;
+        int a[15];
+        for(size_t i = 0; i < 15; ++i) {
+            a[i] = 0;
+        }
+        switch( mpi1s::rank) {
+            case 0:
+                for(size_t i = 0; i < 4; ++i) {
+                    a[i] = i;
+                }   break;
+            case 1:
+                for(size_t i = 0; i < 5; ++i) {
+                    a[i] = 4 + i;
+                }   break;
+            case 2:
+                for(size_t i = 0; i < 6; ++i) {
+                    a[i] = 9 + i;
+                }   break;
+        }
+        print_a("initialized:", a);
+
+        int source = 0;
+        switch( rank) {
+            case 0:
+                MPI_Bcast(&a[0], 4, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 1:
+                MPI_Bcast(&a[5], 4, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 2:
+                MPI_Bcast(&a[6], 4, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+        }
+        print_a("rank 0 broadcasted:", a );
+
+        ++source;
+        switch( rank) {
+            case 0:
+                MPI_Bcast(&a[ 4], 5, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 1:
+                MPI_Bcast(&a[ 0], 5, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 2:
+                MPI_Bcast(&a[10], 5, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+        }
+        print_a("rank 1 broadcasted:", a );
+
+        ++source;
+        switch( rank) {
+            case 0:
+                MPI_Bcast(&a[9], 6, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 1:
+                MPI_Bcast(&a[9], 6, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+            case 2:
+                MPI_Bcast(&a[0], 6, MPI_INT, source, MPI_COMM_WORLD);
+                break;
+        }
+        print_a("rank 2 broadcasted:", a );
+
+        switch( rank) {
+            case 0: {
+                    int expected[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+                    for(size_t i = 0; i < 15; ++i) {
+                        ok &= a[i] == expected[i];
+                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                    }
+                }   break;
+            case 1: {
+                    int expected[15] = {4, 5, 6, 7, 8, 0, 1, 2, 3, 9, 10, 11, 12, 13, 14};
+                    for(size_t i = 0; i < 15; ++i) {
+                        ok &= a[i] == expected[i];
+                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                    }
+                }   break;
+            case 2: {
+                    int expected[15] = {9, 10, 11, 12, 13, 14, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+                    for(size_t i = 0; i < 15; ++i) {
+                        ok &= a[i] == expected[i];
+                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                    }
+                }   break;
+        }
+        mpi1s::finalize();
+
+        std::cout<<info<<"ok="<<ok<<std::endl;
+
+        return ok;
+    }
+ //---------------------------------------------------------------------------------------------------------------------
+}// namespace test5
 
 PYBIND11_MODULE(core, m)
 {// optional module doc-string
@@ -446,4 +621,6 @@ PYBIND11_MODULE(core, m)
     m.def("test1", &test1::test, "");
     m.def("test2", &test2::test, "");
     m.def("test3", &test3::test, "");
+    m.def("test4", &test4::test, "");
+    m.def("test5", &test5::test, "");
 }
