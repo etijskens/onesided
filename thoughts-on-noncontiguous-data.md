@@ -36,7 +36,7 @@ What needs to be modified to turn the one-sided approach into a two-sided approa
 - header buffers and message buffers may be separated.
 - the MessageHandlerBase class does not need a MessageBox class
 
-The MessageBox object could be replaced with a Broadcaster object: it stores the 
+The MessageBox object could be replaced with a Messenger object: it stores the 
 buffers, broadcasts the headers, and acts upon the received headers.
 
 ##### Plan

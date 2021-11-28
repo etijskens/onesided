@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace mpi1s
+namespace mpi12s
 {// Although nothing in this file uses MPI, it is necessary machinery for the MPI messageing 
  // system that we need
  
@@ -34,8 +34,8 @@ namespace mpi1s
         virtual void read (void*& ptr)       = 0;
     // get the size of the message item (in bytes)
         virtual size_t messageSize() const = 0;
-    // convert the message item to an intelligible string (for debugging and testing mainly)
-        virtual std::string toStr() const = 0;
+    // convert the message item to an intelligible list of strings (for debugging and testing mainly)
+        virtual Lines_t debug_text() const = 0;
     };
 
  //-------------------------------------------------------------------------------------------------
@@ -43,38 +43,57 @@ namespace mpi1s
     class MessageItem : public MessageItemBase
  //-------------------------------------------------------------------------------------------------
     {
+        static const bool _debug_ = true; // write debug output or not
+
     public:
         MessageItem(T& t) : ptrT_(&t) {}
 
         ~MessageItem()
         {
-            if constexpr(verbose) std::cout<<"  "<<info<<" destroying MessageItem<T="<<typeid(T).name()<<"> @ "<<this<<std::endl;
+            if constexpr(::mpi12s::_debug_ && _debug_) {
+                prdbg(tostr("~MessageItem<T=", typeid(T).name(), ">() : this=", this));
+            }
         }
 
         virtual void write(void*& ptr) const {
-            if constexpr(debug) std::cout<<info<<"MessageItem<T="<<typeid(T).name()<<">::write "<<toStr()<<std::endl;
-            ::mpi1s::write( *ptrT_, ptr );
+            if constexpr(::mpi12s::_debug_ && _debug_) {
+                prdbg( tostr("MessageItem<T=", typeid(T).name(), ">::write()"), this->debug_text() );
+            }
+            ::mpi12s::write( *ptrT_, ptr );
         }
+
         virtual void read(void*& ptr) {
-            ::mpi1s::read( *ptrT_, ptr );
-            if constexpr(debug) std::cout<<info<<"MessageItem<T="<<typeid(T).name()<<">::read "<<toStr()<<std::endl;
+            ::mpi12s::read( *ptrT_, ptr );
+            if constexpr(::mpi12s::_debug_ && _debug_) {
+                prdbg( tostr("MessageItem<T=", typeid(T).name(), ">::read()"), this->debug_text() );
+            }
         }
      // Size that *ptrT_ will occupy in a message, in bytes
         virtual size_t messageSize() const {
-            return ::mpi1s::messageSize(*ptrT_);
+            return ::mpi12s::messageSize(*ptrT_);
         }
-        virtual std::string toStr() const
+
+     // Content of the message
+        virtual
+        Lines_t // return a list of lines.
+        debug_text() const
         {
+            Lines_t lines;
             std::stringstream ss;
             if constexpr(internal::fixed_size_memcpy_able<T>::value) {
                 ss<<'['<<*ptrT_<<']';
+                lines.push_back(ss.str());
             }
             else if constexpr(internal::variable_size_memcpy_able<T>::value) {
                 size_t sz = ptrT_->size();
-                ss<<'('<<sz<<')'<<"[ ";
-                for( auto v : *ptrT_ ) {
-                    ss<<v<<' ';
+                ss<<"(size="<<sz<<") [";
+                lines.push_back(ss.str()); ss.str(std::string());
+                for( size_t i = 0; i < sz ; ++i ) {
+                    ss<<std::setw(10)<<i
+                      <<std::setw(20)<<(*ptrT_)[i];
+                    lines.push_back(ss.str()); ss.str(std::string());
                 }   ss<<']';
+                lines.push_back(ss.str()); ss.str(std::string());
             }
             else 
                 static_assert
@@ -82,7 +101,7 @@ namespace mpi1s
                     internal::variable_size_memcpy_able<T>::value
                   , "T is not memcpy-able."
                   );
-            return ss.str();
+            return lines;
         }
     private:
         T* ptrT_;
@@ -92,6 +111,7 @@ namespace mpi1s
     class Message
  //-------------------------------------------------------------------------------------------------
     {
+        static bool const _debug_ = true;
     public:
         ~Message();
 
@@ -113,12 +133,12 @@ namespace mpi1s
         size_t messageSize() const;
 
     // Construct an intelligible string with the message items:
-        std::string toStr() const;
+        ::mpi12s::Lines_t debug_text() const;
 
     private:
         std::vector<MessageItemBase*> coll_;
     };
  //-------------------------------------------------------------------------------------------------
-}// namespace mpi1s
+}// namespace mpi12s
 
 #endif // MESSAGE_H

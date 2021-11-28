@@ -11,7 +11,7 @@
 
 namespace py = pybind11;
 
-#include "mpi1s.cpp"
+#include "mpi12s.cpp"
 #include "MessageBuffer.cpp"
 #include "MessageBox.cpp"
 #include "Message.cpp"
@@ -20,7 +20,7 @@ namespace py = pybind11;
 #include <stdexcept>
 
 
-using namespace mpi1s;
+using namespace mpi12s;
 
 bool test_hello()
 {
@@ -53,10 +53,10 @@ bool test_hello()
 
 namespace test1
 {//---------------------------------------------------------------------------------------------------------------------
-    class MessageHandler : public MessageHandlerBase
+    class MessageHandler : public ::mpi1s::MessageHandlerBase
     {
     public:
-        MessageHandler(MessageBox& mb)
+        MessageHandler(::mpi1s::MessageBox& mb)
           : MessageHandlerBase(mb) 
         {// initialize some data to be sent
             i_ = i0;
@@ -64,7 +64,7 @@ namespace test1
             vi_.push_back(vi0);
             vi_.push_back(vi0+1);
             vi_.push_back(vi0+2);
-            if( ::mpi1s::rank == 1 ) {
+            if( ::mpi12s::rank == 1 ) {
              // clear the receiver's data
                 this->clear();
                 bool verified = this->verify();
@@ -75,7 +75,7 @@ namespace test1
             } else {
                 bool verified = this->verify();
                 if( !verified ) {
-                    std::string errmsg = ::mpi1s::info + "verified = false.";
+                    std::string errmsg = ::mpi12s::info + "verified = false.";
                     throw std::runtime_error(errmsg);
                 }
             }        
@@ -114,20 +114,20 @@ namespace test1
     bool test()
     {
         bool ok = true;
-        MessageBox mb(1000,10);
-        int const rank = ::mpi1s::rank;
+        ::mpi1s::MessageBox mb(1000,10);
+        int const rank = ::mpi12s::rank;
         MessageHandler mh(mb);
         if( rank == 0 ) {
-            std::cout<<::mpi1s::info<<"posting to 1"<<std::endl;
+            std::cout<<::mpi12s::info<<"posting to 1"<<std::endl;
             mh.putMessage(1);
         } else {
-            std::cout<<::mpi1s::info<<std::endl;
+            std::cout<<::mpi12s::info<<std::endl;
         }
         
         mh.getMessages();
     
         bool msg_ok = mh.verify();
-        std::cout<<::mpi1s::info
+        std::cout<<::mpi12s::info
                  <<( rank == 0 ? "poster " : (rank == 1 ? "receiver " : "neutral "))
                  <<"ok = "<<ok<<std::endl;
         
@@ -139,7 +139,7 @@ namespace test1
 
 namespace test2
 {//---------------------------------------------------------------------------------------------------------------------
-    class MessageHandler : public MessageHandlerBase
+    class MessageHandler : public ::mpi1s::MessageHandlerBase
     {
         typedef Eigen::Matrix<float, 3, 1, Eigen::DontAlign> vec_t;
 
@@ -151,12 +151,12 @@ namespace test2
         int              rank_;
 
     public:
-        MessageHandler(MessageBox& mb)
+        MessageHandler(::mpi1s::MessageBox& mb)
           : MessageHandlerBase(mb)
         {// initialize some data to be sent
          // we will put to the right rank and get from the left rank
 
-            rank_ = ::mpi1s::rank;
+            rank_ = ::mpi12s::rank;
 
             i_ = rank_;
             d_ = rank_;
@@ -164,10 +164,10 @@ namespace test2
             a_ = {rank_,rank_};
 
             std::cout
-                <<'\n'<<::mpi1s::info<<"setting i_ = "<<i_
-                <<'\n'<<::mpi1s::info<<"setting d_ = "<<d_
-                <<'\n'<<::mpi1s::info<<"verify v_ = ["<<v_<<']'
-                <<'\n'<<::mpi1s::info<<"verify a_ = ["<<a_[0]<<' '<<a_[1]<<']'
+                <<'\n'<<::mpi12s::info<<"setting i_ = "<<i_
+                <<'\n'<<::mpi12s::info<<"setting d_ = "<<d_
+                <<'\n'<<::mpi12s::info<<"verify v_ = ["<<v_<<']'
+                <<'\n'<<::mpi12s::info<<"verify a_ = ["<<a_[0]<<' '<<a_[1]<<']'
                 <<std::endl;
 
          // add the data to the message
@@ -180,14 +180,14 @@ namespace test2
         bool verify()
         {
             std::cout
-                <<'\n'<<::mpi1s::info<<"verify i_ = "<<i_
-                <<'\n'<<::mpi1s::info<<"verify d_ = "<<d_
-                <<'\n'<<::mpi1s::info<<"verify v_ = ["<<v_<<']'
-                <<'\n'<<::mpi1s::info<<"verify a_ = ["<<a_[0]<<' '<<a_[1]<<']'
+                <<'\n'<<::mpi12s::info<<"verify i_ = "<<i_
+                <<'\n'<<::mpi12s::info<<"verify d_ = "<<d_
+                <<'\n'<<::mpi12s::info<<"verify v_ = ["<<v_<<']'
+                <<'\n'<<::mpi12s::info<<"verify a_ = ["<<a_[0]<<' '<<a_[1]<<']'
                 <<std::endl;
 
             int left = next_rank(-1);
-            std::cout<<::mpi1s::info<<"received from "<<left<<std::endl;
+            std::cout<<::mpi12s::info<<"received from "<<left<<std::endl;
 
             bool ok = true;
             ok &= (i_ == left);                     if(!ok) std::cout<<"failing on i_"<<std::endl;
@@ -203,31 +203,31 @@ namespace test2
 
     bool test()
     {
-        ::mpi1s::init();
+        ::mpi12s::init();
 
         bool ok = true;
         {
-            MessageBox mb(1000,10);
-            int rank = ::mpi1s::rank;
+            ::mpi1s::MessageBox mb(1000,10);
+            int rank = ::mpi12s::rank;
             int right_rank = next_rank();
     
             MessageHandler mh(mb);
-            std::cout<<::mpi1s::info<<"posting to "<<right_rank<<std::endl;
+            std::cout<<::mpi12s::info<<"posting to "<<right_rank<<std::endl;
             mh.putMessage(right_rank);
             
             mh.getMessages();
     
             bool msg_ok = mh.verify();
     
-            std::cout<<::mpi1s::info
+            std::cout<<::mpi12s::info
                     <<( rank == 0 ? "poster " : (rank == 1 ? "receiver " : "neutral "))
                     <<"ok = "<<ok<<std::endl;
             
             ok &= msg_ok;
-            std::cout<<::mpi1s::info<<"end of MessageBox scope"<<std::endl;
+            std::cout<<::mpi12s::info<<"end of ::mpi1s::MessageBox scope"<<std::endl;
         }
-        std::cout<<::mpi1s::info<<"done"<<std::endl;
-        ::mpi1s::finalize();
+        std::cout<<::mpi12s::info<<" done"<<std::endl;
+        ::mpi12s::finalize();
         return ok;
     }
  //---------------------------------------------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ namespace test3
         ParticleContainer(int size)
         {
             std::stringstream ss;
-            ss<<mpi1s::info<<'\n';
+            ss<<info<<'\n';
             alive_.resize(size);
             r.resize(size);
             m.resize(size);
@@ -314,14 +314,14 @@ namespace test3
         }
     };
 
-    class MessageHandler : public MessageHandlerBase
+    class MessageHandler : public ::mpi1s::MessageHandlerBase
     {
         ParticleContainer& pc_;
         std::vector<value_t> ri;
         std::vector<value_t> mi;
         std::vector<vec_t  > xi;
     public:
-        MessageHandler(MessageBox& mb, ParticleContainer& pc)
+        MessageHandler(::mpi1s::MessageBox& mb, ParticleContainer& pc)
           : MessageHandlerBase(mb)
           , pc_(pc)
         {
@@ -347,7 +347,7 @@ namespace test3
                 MessageHandlerBase::putMessage(to_rank); // from rank 0 to rank 1
                 int n = ri.size();
                 std::stringstream ss;
-                ss<<mpi1s::info<<"sending "<<n<<" items to "<<to_rank<<'\n';
+                ss<<info<<"sending "<<n<<" items to "<<to_rank<<'\n';
                 for( int i=0; i<n; ++i) {
                     ss<<i<<std::setw(4)<<ri[i]<<std::setw(4)<<mi[i]<<" ["<<std::setw(4)<<xi[i][0]<<std::setw(4)<<xi[i][1]<<std::setw(4)<<xi[i][2]<<"]\n";
                 }   std::cout<<ss.str()<<std::endl;
@@ -360,19 +360,19 @@ namespace test3
 
         void getAllMessages()
         {// this must be executed by ALL processes
-            std::cout<<mpi1s::info<<"sizes before= "<<ri.size()<<','<<mi.size()<<std::endl;
+            std::cout<<info<<"sizes before= "<<ri.size()<<','<<mi.size()<<std::endl;
             getMessages();
-            std::cout<<mpi1s::info<<"sizes after = "<<ri.size()<<','<<mi.size()<<std::endl;
+            std::cout<<info<<"sizes after = "<<ri.size()<<','<<mi.size()<<std::endl;
             int n = ri.size();
-            std::cout<<mpi1s::info<<n<<" items received\n";
+            std::cout<<info<<n<<" items received\n";
             for( int i=0; i<n; ++i) {
-                std::cout<<mpi1s::info<<i<<' '<<ri[i]<<' '<<mi[i]
+                std::cout<<info<<i<<' '<<ri[i]<<' '<<mi[i]
                           <<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
             }   std::cout<<std::endl;
          // copy to the particle container:
             std::vector<int> indices(n);
             std::stringstream ss;
-            ss<<info<<"adding elements ";
+            ss<<::mpi12s::info<<"adding elements ";
             for( size_t i = 0; i<n; ++i ) {
                 indices[i] = pc_.add();
                 ss<<indices[i]<<' ';
@@ -387,25 +387,25 @@ namespace test3
 
     bool test()
     {
-        mpi1s::init();
+        init();
 
         ParticleContainer pc(8);
 
         bool ok = true;
         {
-            MessageBox mb(1000,10);
+            ::mpi1s::MessageBox mb(1000,10);
             MessageHandler mh(mb, pc);
          // move the odd particles to the next rank
          // there is one message for each process
             std::vector<int> indices = {1,3,5,7};
-            mh.putMessage(indices, mpi1s::next_rank());
+            mh.putMessage(indices, next_rank());
             mh.getAllMessages();
 
-            std::cout<<::mpi1s::info<<"end of MessageBox scope"<<std::endl;
-         // destroy MessageBox mb, must come before mpi1s::finalize()
+            std::cout<<::mpi12s::info<<"end of ::mpi1s::MessageBox scope"<<std::endl;
+         // destroy ::mpi1s::MessageBox mb, must come before finalize()
         }
         std::stringstream ss;
-        ss<<info<<"pc\n";
+        ss<<::mpi12s::info<<"pc\n";
         for(size_t i=0; i<pc.size(); ++i ) {
             if( pc.is_alive(i) ) {
                 ss<<'['<<i<<"] "
@@ -414,8 +414,8 @@ namespace test3
                   <<" ["<<std::setw(4)<<pc.x[i][0]<<std::setw(4)<<pc.x[i][1]<<std::setw(4)<<pc.x[i][2]<<"]";
             }
          // verify contents:
-            int const   my_rank = mpi1s::rank;
-            int const prev_rank = mpi1s::next_rank(-1);
+            int const   my_rank = rank;
+            int const prev_rank = next_rank(-1);
             value_t expected_r = ( i%2 ? 100*prev_rank + i // odd i
                                        : 100*my_rank + i   //even i
                                  );
@@ -429,8 +429,8 @@ namespace test3
             ss <<' '<<ok<<'\n';
         }  std::cout<<ss.str()<<std::endl;
 
-        std::cout<<::mpi1s::info<<"done"<<std::endl;
-        mpi1s::finalize();
+        std::cout<<::mpi12s::info<<" done"<<std::endl;
+        finalize();
         return ok;
     }
  //---------------------------------------------------------------------------------------------------------------------
@@ -441,10 +441,10 @@ namespace test4
     bool test()
     {// This test broadcasts an array in which every rank has initialized its own section: a[rank*5:rank*5+5]
      // After broadcasting the array is complete on every rank
-        mpi1s::init();
+        init();
 
      // // Get number of processes and check that 3 processes are use
-        if(mpi1s::size != 3)
+        if(::mpi12s::size != 3)
         {
             printf("This application is meant to be run with 3 MPI processes.\n");
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -454,15 +454,15 @@ namespace test4
         for(size_t i = 0; i < 15; ++i) {
             a[i] = 0;
         }
-        for( int rank=0; rank<3; ++rank) {
-            if (rank == mpi1s::rank) {
-                for(size_t i = rank*5; i < rank*5 + 5; ++i) {
+        for( int r=0; r<3; ++r ) {
+            if (rank == r) {
+                for(size_t i = r*5; i < r*5 + 5; ++i) {
                     a[i] = i;
                 }
             }
         }
         std::stringstream ss;
-        ss<<info;
+        ss<<::mpi12s::info;
         for(size_t i = 0; i < 15; ++i) {
             ss<<a[i]<<' ';
         }   std::cout<<ss.str()<<std::endl;
@@ -470,18 +470,18 @@ namespace test4
         for( int rank=0; rank<3; ++rank) {
             MPI_Bcast(&a[rank*5], 5, MPI_INT, rank, MPI_COMM_WORLD);
             std::stringstream ss;
-            ss<<info<<rank<<':';
+            ss<<::mpi12s::info<<rank<<':';
             for(size_t i = 0; i < 15; ++i) {
                 ss<<a[i]<<' ';
             }   std::cout<<ss.str()<<std::endl;
         }
         for(size_t i = 0; i < 15; ++i) {
             ok &= a[i] == i;
-            if( !ok ) std::cout<<info<<"oops"<<std::endl;
+            if( !ok ) std::cout<<::mpi12s::info<<"oops"<<std::endl;
         }
-        mpi1s::finalize();
+        finalize();
 
-        std::cout<<info<<"ok="<<ok<<std::endl;
+        std::cout<<::mpi12s::info<<"ok="<<ok<<std::endl;
 
         return ok;
     }
@@ -493,7 +493,7 @@ namespace test5
     void print_a(char const* msg, int const * const a)
     {
         std::stringstream ss;
-        ss<<info + msg;
+        ss<<::mpi12s::info + msg;
         for(size_t i = 0; i < 15; ++i) {
             ss<<a[i]<<' ';
         }   ss<<'\n';
@@ -509,10 +509,10 @@ namespace test5
      // Note that each rank broadcasts a different number of items (resp. 4, 5 and 6) and the the buffer on the
      // receiving end does not use the same memory location. So, after broadcasting, every rank has all the values
      // but not in the sorted order. (But this is intentially so).
-        mpi1s::init();
+        init();
 
      // // Get number of processes and check that 3 processes are used
-        if(mpi1s::size != 3)
+        if(::mpi12s::size != 3)
         {
             printf("This application is meant to be run with 3 MPI processes.\n");
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -522,7 +522,7 @@ namespace test5
         for(size_t i = 0; i < 15; ++i) {
             a[i] = 0;
         }
-        switch( mpi1s::rank) {
+        switch( rank) {
             case 0:
                 for(size_t i = 0; i < 4; ++i) {
                     a[i] = i;
@@ -538,6 +538,8 @@ namespace test5
         }
         print_a("initialized:", a);
 
+     // This approach here works only because the receivers know how much data to receive (4 ints from rank 0,
+     // 5 from rank 1 and 6 from rank 2.
         int source = 0;
         switch( rank) {
             case 0:
@@ -585,32 +587,258 @@ namespace test5
                     int expected[15] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
                     for(size_t i = 0; i < 15; ++i) {
                         ok &= a[i] == expected[i];
-                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                        if( !ok ) std::cout<<::mpi12s::info<<"oops"<<std::endl;
                     }
                 }   break;
             case 1: {
                     int expected[15] = {4, 5, 6, 7, 8, 0, 1, 2, 3, 9, 10, 11, 12, 13, 14};
                     for(size_t i = 0; i < 15; ++i) {
                         ok &= a[i] == expected[i];
-                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                        if( !ok ) std::cout<<::mpi12s::info<<"oops"<<std::endl;
                     }
                 }   break;
             case 2: {
                     int expected[15] = {9, 10, 11, 12, 13, 14, 0, 1, 2, 3, 4, 5, 6, 7, 8};
                     for(size_t i = 0; i < 15; ++i) {
                         ok &= a[i] == expected[i];
-                        if( !ok ) std::cout<<info<<"oops"<<std::endl;
+                        if( !ok ) std::cout<<::mpi12s::info<<"oops"<<std::endl;
                     }
                 }   break;
         }
-        mpi1s::finalize();
+        finalize();
 
-        std::cout<<info<<"ok="<<ok<<std::endl;
+        std::cout<<::mpi12s::info<<"ok="<<ok<<std::endl;
 
         return ok;
     }
  //---------------------------------------------------------------------------------------------------------------------
 }// namespace test5
+
+namespace test6
+{//---------------------------------------------------------------------------------------------------------------------
+    typedef Eigen::Matrix<float, 3, 1, Eigen::DontAlign> vec_t;
+    typedef float value_t;
+
+    class ParticleContainer
+    {
+        std::vector<bool> alive_;
+    public:
+        std::vector<value_t> r;
+        std::vector<value_t> m;
+//        std::vector<vec_t>   x;
+
+        ParticleContainer(int size)
+        {
+            std::stringstream ss;
+            Lines_t lines;
+
+            ss<<std::setw(4)<<"i"
+              <<std::setw(4)<<"r"
+              <<std::setw(4)<<"m"
+//            <<std::setw(4)<<"x0"<<std::setw(4)<<"x1"<<std::setw(4)<<"x2"
+              ;
+            lines.push_back(ss.str()); ss.str(std::string());
+            alive_.resize(size);
+            r.resize(size);
+            m.resize(size);
+//            x.resize(size);
+            for( int i=0; i<size; ++i) {
+                int ir = 100*rank + i;
+                alive_[i] = true;
+                r[i] = ir;
+                m[i] = ir + size;
+//                for( int k=0; k<3; ++k )
+//                    x[i][k] = ir+k*size;
+                ss<<std::setw(4)<<i
+                  <<std::setw(4)<<r[i]
+                  <<std::setw(4)<<m[i]
+//                     <<'['<<std::setw(4)<<x[i][0]<<std::setw(4)<<x[i][1]<<std::setw(4)<<x[i][2]<<"]"
+                  ;
+                lines.push_back(ss.str()); ss.str(std::string());
+            }// print_lines(lines);
+            prdbg( tostr("ParticleContainer(size=", size, ")")
+                 , lines
+                 );
+        }
+
+        size_t // the size of a particle container.
+        size() const {
+            return alive_.size();
+        }
+
+     // Grow the arrays by a factor 1.5, and return the position of the first new element
+     // (which is not alive, obviously).
+        int grow()
+        {
+            int old_size = alive_.size();
+            int new_size = (int)(old_size*1.5);
+            if (new_size == old_size) ++new_size;
+            alive_.resize(new_size);
+//            x.resize(new_size);
+            r.resize(new_size);
+            m.resize(new_size);
+            for (int i=old_size; i<new_size; ++i) {
+                alive_[i] = false;
+            }
+            return old_size;
+        }
+
+     // Find an index for a new particle
+        int add()
+        {// look for a dead particle
+            for( int i=0; i<alive_.size(); ++i) {
+                if (not alive_[i]) {
+                    alive_[i] = true;
+                    return i;
+                }
+            }// none found
+         // grow the array.
+            return grow();
+        }
+
+     // remove an element
+        void remove(int i)
+        {
+            alive_[i] = false;
+        }
+
+     // test if alive
+        bool is_alive(int i) const {
+            return alive_[i];
+        }
+    };
+
+    class MessageHandler : public ::mpi2s::MessageHandlerBase
+    {
+        ParticleContainer& pc_;
+        std::vector<value_t> ri;
+        std::vector<value_t> mi;
+        std::vector<vec_t  > xi;
+    public:
+        MessageHandler(ParticleContainer& pc)
+          : pc_(pc)
+        {
+            message().push_back(ri);
+            message().push_back(mi);
+//            message().push_back(xi);
+        }
+
+        void postMessage(std::vector<int>& indices, int to_rank)
+        {
+            ri.clear();
+            mi.clear();
+            xi.clear();
+
+            {// assemble the non-contigous data into a contiguous array
+                for( auto index: indices) {
+                    ri.push_back(pc_.r[index]);
+                    mi.push_back(pc_.m[index]);
+//                    xi.push_back(pc_.x[index]);
+                 // remove the particle from the pc:
+                    pc_.remove(index);
+                }
+                MessageHandlerBase::postMessage(to_rank);
+                int n = ri.size();
+//                std::stringstream ss;
+//                ss<<info<<"sending "<<n<<" items to "<<to_rank<<'\n';
+//                for( int i=0; i<n; ++i) {
+//                    ss<<i<<std::setw(4)<<ri[i]<<std::setw(4)<<mi[i]<<" ["<<std::setw(4)<<xi[i][0]<<std::setw(4)<<xi[i][1]<<std::setw(4)<<xi[i][2]<<"]\n";
+//                }   printf("%s", ss.str().data());
+            }
+         // clearing is not necessary. Here just to make sure that the receivers are correctly resized.
+            xi.clear();
+            ri.clear();
+            mi.clear();
+        }
+
+        void readMessage()
+        {
+//            std::cout<<info<<"sizes before= "<<ri.size()<<','<<mi.size()<<std::endl;
+//            getMessages();
+//            std::cout<<info<<"sizes after = "<<ri.size()<<','<<mi.size()<<std::endl;
+//            int n = ri.size();
+//            std::cout<<info<<n<<" items received\n";
+//            for( int i=0; i<n; ++i) {
+//                std::cout<<info<<i<<' '<<ri[i]<<' '<<mi[i]
+//                          <<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
+//            }   std::cout<<std::endl;
+//         // copy to the particle container:
+//            std::vector<int> indices(n);
+//            std::stringstream ss;
+//            ss<<::mpi12s::info<<"adding elements ";
+//            for( size_t i = 0; i<n; ++i ) {
+//                indices[i] = pc_.add();
+//                ss<<indices[i]<<' ';
+//            }   std::cout<<ss.str()<<std::endl;
+//            for( size_t i = 0; i<n; ++i ) {
+//                pc_.m[indices[i]] = mi[i];
+//                pc_.r[indices[i]] = ri[i];
+//                pc_.x[indices[i]] = xi[i];
+//            }
+        }
+    };
+
+    bool test()
+    {
+        init();
+     // Todo move this into the init call above
+        ::mpi12s::theMessageBuffer.initialize(1000, 10);
+
+        ParticleContainer pc(8);
+
+        bool ok = true;
+        {
+            MessageHandler mh(pc);
+         // move the odd particles to the next rank
+         // there is one message for each process
+            std::vector<int> indices = {1,3,5,7};
+            mh.postMessage(indices, next_rank());
+
+            mpi12s::theMessageBuffer.broadcast();
+
+            mh.readMessage();
+        }
+
+        Lines_t lines;
+        for(size_t i=0; i<pc.size(); ++i )
+        {
+            std::stringstream ss;
+            if( pc.is_alive(i) )
+            {
+                ss<<std::setw(4)<<i
+                  <<std::setw(4)<<pc.r[i]
+                  <<std::setw(4)<<pc.m[i]
+//                  <<" ["<<std::setw(4)<<pc.x[i][0]<<std::setw(4)<<pc.x[i][1]<<std::setw(4)<<pc.x[i][2]<<"]"
+                  <<" : ";
+             // verify contents:
+                int const   my_rank = rank;
+                int const prev_rank = next_rank(-1);
+                value_t expected_r = ( i%2 ? 100*prev_rank + i // odd i
+                                           : 100*my_rank + i   //even i
+                                     );
+                value_t expected_m = expected_r + 8;
+    //            vec_t   expected_x = vec_t(expected_r, expected_r+8, expected_r+16);
+
+                ok &= pc.r[i] == expected_r;
+                ss<<' '<<ok;
+
+                ok &= pc.m[i] == expected_m;
+                ss<<','<<ok;
+    //            ok &= pc.x[i] == expected_x;
+    //            ss <<' '<<ok<<;
+
+                lines.push_back(ss.str()); ss.str(std::string());
+            }
+
+        }
+        prdbg("pc", lines);
+
+        std::cout<<::mpi12s::info<<" done"<<std::endl;
+        finalize();
+        return ok;
+    }
+ //---------------------------------------------------------------------------------------------------------------------
+}// namespace test6
 
 PYBIND11_MODULE(core, m)
 {// optional module doc-string
@@ -623,4 +851,5 @@ PYBIND11_MODULE(core, m)
     m.def("test3", &test3::test, "");
     m.def("test4", &test4::test, "");
     m.def("test5", &test5::test, "");
+    m.def("test6", &test6::test, "");
 }

@@ -50,6 +50,10 @@ def test_5():
     print(f"ok = {ok}")
     assert ok
 
+def test_6():
+    ok = onesided.core.test6()
+    print(f"ok = {ok}")
+    assert ok
 
 
 #===============================================================================
@@ -62,7 +66,7 @@ if __name__ == "__main__":
     # print(f"__main__ running {the_test_you_want_to_debug} ...")
     # the_test_you_want_to_debug()
     print("------------------------------------------------------------")
-    the_test_you_want_to_debug = test_5
+    the_test_you_want_to_debug = test_6
     print(f"__main__ running {the_test_you_want_to_debug} ...")
     the_test_you_want_to_debug()
     print("------------------------------------------------------------")

@@ -18,8 +18,8 @@ namespace mpi1s
       )
     {
      // Create an MPI window and allocate memory for it
-        size_t total_size = (1 + max_msgs * MessageBuffer::HEADER_SIZE) + bufferSize ;
-                          //(headere section                          ) + message section
+        size_t total_size = (1 + max_msgs * ::mpi12s::MessageBuffer::HEADER_SIZE) + bufferSize ;
+                          //(headere section                                    ) + message section
         Index_t * pWindowBuffer = nullptr;
         
         int success =
@@ -32,7 +32,7 @@ namespace mpi1s
                 , &window_        // pointer to the MPI_Win object
                 );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = info + "MPI_Win_allocate failed.";
+            std::string errmsg = ::mpi12s::info + "MPI_Win_allocate failed.";
             throw std::runtime_error(errmsg);
         }
 
@@ -51,10 +51,10 @@ namespace mpi1s
     MessageBox::
     ~MessageBox()
     {// free resources.     
-        if constexpr(verbose) std::cout<<'\n'<<::mpi1s::info<<"~MessageBox()"<<std::endl;
+        if constexpr(::mpi12s::_verbose_) printf("\n%s~MessageBox()\n", CINFO);
         int success = MPI_Win_free(&window_);
-        if constexpr(verbose) { 
-            std::cout<<info<<"~MessageBox(): MPI_Win_free(&window_) success = "<<(success == MPI_SUCCESS)<<std::endl;
+        if constexpr(::mpi12s::_verbose_) {
+            printf("%s~MessageBox(): MPI_Win_free(&window_) success = %d\n", CINFO, (success == MPI_SUCCESS));
         }
     }
 
@@ -62,10 +62,10 @@ namespace mpi1s
     MessageBox::
     getMessages()
     {
-        int const my_rank = ::mpi1s::rank;
-        int const nranks  = ::mpi1s::size;
+        int const my_rank = ::mpi12s::rank;
+        int const nranks  = ::mpi12s::size;
      // loop over all ranks, starting with the left neighbour, and moving to the right:
-        int left = next_rank(-1);
+        int left = ::mpi12s::next_rank(-1);
         for( int i = 0; i < nranks; ++i)
         {// Clear the readHeaders_ and readBuffer_ buffers:
             readHeaders_.clear();
@@ -74,13 +74,15 @@ namespace mpi1s
             int from_rank = (left + i) % nranks;
             if( from_rank != my_rank ) // skip my rank
             {
-                std::cout<<::mpi1s::info<<"MessageBox::getMessages() : from_rank="<<from_rank<<std::endl;
+                if constexpr(::mpi12s::_debug_) printf("%sMessageBox::getMessages() : from_rank==%d\n", CINFO, from_rank);
                 {   Epoch(*this, 0, "MessageBox::getHeaders_()");
                  // copy the header section from from_rank into the readHeaders_
                     getHeaders_(from_rank);
                 }// close the epoch
-                if constexpr(debug) std::cout<<info+"readHeaders_:\n"+readHeaders_.headersToStr()<<std::endl;
-
+                if constexpr(::mpi12s::_debug_) {
+                    printf("%s MessageBox::getMessages() : readHeaders_:\n", CINFO);
+//                    print_lines( readHeaders_.headersToStr() );
+                }
              // The epoch is closed, so the header is available   
                 {// get all messages in the header which are for me
                     Epoch(*this, 0, "for(m) { MessageBox::getMessage_(m); }");
@@ -93,16 +95,8 @@ namespace mpi1s
                 }// close the Epoch
              // The epoch is closed, so the raw messages are available
              // read the messages (by fetching the appropriate MessageHandler)
-
-                if constexpr(debug) {
-                    std::cout<<info+"readBuffer:\n"+readBuffer_.headersToStr()<<std::endl;
-                    for( Index_t m = 0; m < readBuffer_.nMessages(); ++m ) {
-                        readBuffer_.messageToStr(m);
-                    }
-                }
-                for( Index_t m = 0; m < readBuffer_.nMessages(); ++m ) {
+                for( Index_t m = 0; m < readBuffer_.nMessages(); ++m )
                     readMessage_(m);
-                }
             }
         }
     }
@@ -125,7 +119,7 @@ namespace mpi1s
           , window_                     // window
           );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = ::mpi1s::info + "MPI_get failed, while getting header from rank " + std::to_string(from_rank) + ".";
+            std::string errmsg = ::mpi12s::info + "MPI_get failed, while getting header from rank " + std::to_string(from_rank) + ".";
             throw std::runtime_error(errmsg);
         }
     }
@@ -159,7 +153,7 @@ namespace mpi1s
             , window_                                // window
             );
         if( success != MPI_SUCCESS ) {
-            std::string errmsg = ::mpi1s::info + "MPI_get failed (getting message).";
+            std::string errmsg = ::mpi12s::info + "MPI_get failed (getting message).";
             throw std::runtime_error(errmsg);
         }
         return to_msgid;        
@@ -172,66 +166,14 @@ namespace mpi1s
                       // be read with the appropriate message handler
       )
     {
-        MessageHandlerKey_t key = readBuffer_.messageHandlerKey(msgid);
-        void*               ptr = readBuffer_.messagePtr       (msgid);
+        ::mpi12s::MessageHandlerKey_t key = readBuffer_.messageHandlerKey(msgid);
+        void*                         ptr = readBuffer_.messagePtr       (msgid);
      // fetch the message handler
         MessageHandlerBase& messageHandler = theMessageHandlerRegistry[key];
      // read the message
         messageHandler.message().read(ptr);
     }
-    // void
-    // MessageBox::
-    // getMessages()
-    // {
-        // messages.clear();
-        // {// open an epoch
-        //     Epoch epoch(*this,0);
-        //     getHeaders();
 
-        //     for( int r=0; r<comm_.size(); ++r)
-        //     {
-        //         if( r != comm_.rank() )
-        //         {// skip own rank
-        //             Index_t const * headers = receivedMessageHeaders_[r].data();
-        //             for( Index_t m=0; m<nMessages(headers); ++m )
-        //             {
-        //                 if( messageDestination(m,headers) == comm_.rank() )
-        //                 {// This is a message for me
-        //                     Index_t const message_size = messageSize(m,headers);
-        //                     msgbuf_type message_buffer( static_cast<std::string::size_type>(message_size*sizeof(Index_t)), '\0' );
-        //                     int success =
-        //                     MPI_Get
-        //                       ( message_buffer.data()   // buffer to store the elements to get
-        //                       , message_size            // size of that buffer (number of elements0
-        //                       , MPI_LONG_LONG_INT       // type of that buffer
-        //                       , r                       // process rank to get from (target)
-        //                       , messageBegin(m,headers) // offset in targets window
-        //                       , message_size            // number of elements to get
-        //                       , MPI_LONG_LONG_INT       // data type of that buffer
-        //                       , window_                 // window
-        //                       );
-        //                     if( success != MPI_SUCCESS ) {
-        //                         std::string errmsg = comm_.str() + "MPI_get failed (getting message).";
-        //                         throw std::runtime_error(errmsg);
-        //                     }
-        //                     messages.push_back(message_buffer);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }// epoch is closed
-//        for( const auto& message: messages ) {
-//            std::cout<<'\n'<<comm_.str();
-//            for(auto it = std::begin(message); it != std::end(message); ++it) {
-//                std::cout<<*it<<' ';
-//            }
-//            std::cout<<'\n'<<comm_.str();
-//            for(auto ptr=message.data(); ptr!=message.data()+message.size(); ++ptr) {
-//                std::cout<<*reinterpret_cast<double const *>(ptr)<<' ';
-//            }
-//            std::cout<<std::endl;
-//        }
-    // }
  //------------------------------------------------------------------------------------------------
  // class Epoch implementation
  //------------------------------------------------------------------------------------------------
@@ -239,12 +181,12 @@ namespace mpi1s
     Epoch
       ( MessageBox& mb
       , int assert=0    // not sure whether assert is useful
-      , char const* msg // message, ignored if ::mpi1s::verbose == false.
+      , char const* msg // message, ignored if ::mpi12s::verbose == false.
       )
       : mb_(mb)
       , msg_(msg)
     {
-        if constexpr(verbose) std::cout<<info<<"Opening MPI window (Epoch)  "<<msg_<<std::endl;
+        if constexpr(::mpi12s::_verbose_) printf("%sOpening MPI window (Epoch)  %s\n", CINFO, msg_ );
         MPI_Win_fence(assert, mb_.window());
     }
 
@@ -252,35 +194,10 @@ namespace mpi1s
     ~Epoch()
     {
         MPI_Win_fence(0, mb_.window());
-        if constexpr(verbose) std::cout<<info<<"Closing MPI window (~Epoch) "<<msg_<<std::endl;
+        if constexpr(::mpi12s::_verbose_) printf("%sClosing MPI window (Epoch)  %s\n", CINFO, msg_ );
     }
+ //---------------------------------------------------------------------------------------------------------------------
 }// namespace mpi1s
 
 
-//  //---------------------------------------------------------------------------------------------------------------------
-//  // class MessageStream
-//  //---------------------------------------------------------------------------------------------------------------------
-//    class MessageStream
-//     {
-//       public:
-//         MessageStream() {}
-
-//      // write or read T object, select with mode argument
-//         template<typename T>
-//         void
-//         handle(T & t, char mode) {
-//             MessageStreamHelper<T,handler_kind<T>::value>::handle(t, ss_, mode);
-//         }
-//      // get the message as e string to put it to the window
-//         std::string str() const { return ss_.str(); }
-
-//         void set(std::string const& s) {
-//             ss_.clear();
-//             ss_<<s;
-//         }
-
-//       private: // data members
-//         std::stringstream ss_;
-//     };
- //---------------------------------------------------------------------------------------------------------------------
 

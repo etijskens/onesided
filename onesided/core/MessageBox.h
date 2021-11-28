@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
-#include "mpi1s.h"
+#include "mpi12s.h"
 #include "MessageBuffer.h"
 // #include "MessageHandler.h"
 
@@ -54,15 +54,15 @@ namespace mpi1s
           );
 
     public: // data member accessors
-        inline MessageBuffer& windowBuffer() { return windowBuffer_; }
-        inline MessageBuffer&   readBuffer() { return   readBuffer_; }
+        inline ::mpi12s::MessageBuffer& windowBuffer() { return windowBuffer_; }
+        inline mpi12s::MessageBuffer&   readBuffer() { return   readBuffer_; }
         inline MPI_Win window() { return window_; }
 
     private:
         MPI_Win  window_;
-        MessageBuffer windowBuffer_; // its memory is allocated by MPI_Win_allocate
-        MessageBuffer readHeaders_;  // its memory is allocated by new Index_t[]
-        MessageBuffer readBuffer_;   // its memory is allocated by new Index_t[]
+        ::mpi12s::MessageBuffer windowBuffer_; // its memory is allocated by MPI_Win_allocate
+        ;;mpi12s::MessageBuffer readHeaders_;  // its memory is allocated by new Index_t[]
+        ::mpi12s::MessageBuffer readBuffer_;   // its memory is allocated by new Index_t[]
     };
 
 

@@ -8,7 +8,7 @@
 
 typedef int64_t Index_t;
 
-namespace mpi1s
+namespace mpi12s
 {//-------------------------------------------------------------------------------------------------
    namespace internal
     {// This contains the machinery
@@ -55,7 +55,8 @@ namespace mpi1s
         struct memcpy_traits
      //-------------------------------------------------------------------------------------------------
         {// C++17 required
-            
+            static bool const _debug_ = true;
+
          // Get a pointer to t's data.
             static 
             void*       // pointer to the beginning of the memory of the T object t 
@@ -100,31 +101,35 @@ namespace mpi1s
 
                 if constexpr(fixed_size_memcpy_able<T>::value)
                 {
-                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::write /0/"<<dst<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("fixed_size_memcpy_able<T=", typeid(T).name(), ">::write(t, dst=", dst, ")") );
                  // write the variable t
                     auto nBytes = sizeof(t);
                     memcpy( dst, ptr(t), nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(dst, nBytes);
-                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
-
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("fixed_size_memcpy_able<T=", typeid(T).name(), ">::write(t, dst=", dst, "), bytes written=sizeof(size_t)", nBytes) );
                 }
                 else if constexpr(variable_size_memcpy_able<T>::value)
                 {
-                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /0/"<<dst<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::write(t, dst=", dst, ")") );
                  // write the size of the collection:
                     size_t size = t.size();
                     auto nBytes = sizeof(size_t);
                     memcpy( dst, &size, nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(dst, nBytes);
-                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /1/"<<dst<<"=+"<<nBytes<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::write(t, dst=", dst, "), bytes written=sizeof(size_t)=", nBytes) );
                  // write the collection:
                     nBytes = size * sizeof(typename T::value_type);
                     memcpy( dst, &t[0], nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(dst, nBytes);
-                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::write /2/"<<dst<<"=+"<<nBytes<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::write(t, dst=", dst, "), bytes written=", nBytes) );
                 }
                 else
                     static_assert(fixed_size_memcpy_able<T>::value || variable_size_memcpy_able<T>::value, "type T is not memcpy-able");
@@ -139,23 +144,29 @@ namespace mpi1s
             {
                 if constexpr(fixed_size_memcpy_able<T>::value)
                 {
-                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::read /0/"<<src<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("fixed_size_memcpy_able<T=", typeid(T).name(), ">::read(t, src=", src, ")") );
                  // read the variable t
                     auto nBytes = sizeof(t);
                     memcpy( ptr(t), src, nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(src, nBytes);
-                    if constexpr(debug) std::cout<<info<<"fixed_size_memcpy_able<T="<<typeid(T).name()<<">::reead /1/"<<src<<"=+"<<nBytes<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("fixed_size_memcpy_able<T=", typeid(T).name(), ">::read(t, src=", src, "), bytes read=sizeof(size_t)", nBytes) );
                 }
                 else if constexpr(variable_size_memcpy_able<T>::value)
                 {
-                    if constexpr(debug) std::cout<<info<<"variable_size_memcpy_able<T="<<typeid(T).name()<<">::read /0/"<<src<<std::endl;
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::read(t, src=", src, ")") );
                  // read the size of the collection:
                     auto nBytes = sizeof(size_t);
                     size_t size;
                     memcpy( &size, src, nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(src, nBytes);
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::read(t, src=", src, "), bytes read=sizeof(size_t)=", nBytes) );
+
                  // resize the collection
                     t.resize(size);
                  // read the collection:
@@ -163,7 +174,9 @@ namespace mpi1s
                     memcpy( &t[0], src, nBytes );
                  // advance the pointer in the buffer
                     advance_void_ptr(src, nBytes);
-                }
+                    if constexpr(::mpi12s::_debug_ && _debug_)
+                        prdbg( tostr("variable_size_memcpy_able<T=", typeid(T).name(), ">::read(t, src=", src, "), bytes read=", nBytes) );
+}
                 else
                     static_assert(fixed_size_memcpy_able<T>::value || variable_size_memcpy_able<T>::value, "type T is not memcpy-able");
             }
@@ -207,5 +220,6 @@ namespace mpi1s
         return internal::memcpy_traits<T>::messageSize(t);
     }
  //-------------------------------------------------------------------------------------------------
-}// namespace mpi1s
+}// namespace mpi12s
+
 #endif // MEMCPY_ABLE_H
