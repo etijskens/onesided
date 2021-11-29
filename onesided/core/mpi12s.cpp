@@ -46,7 +46,12 @@ namespace mpi12s
             int64_t timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() - timestamp0;
 
             FILE* fh = fopen(dbg_fname.c_str(), "w");
-            if(fh==nullptr){printf("%s failed to open .dbg file: permission issue?\n", CINFO); exit(1);}
+            if(fh==nullptr) {
+                printf("%s failed to open %s file: permission issue?\n", CINFO, dbg_fname.c_str());
+                exit(1);
+            } else {
+                printf("%s Opened %s file for debug output.\n", CINFO, dbg_fname.c_str());
+            }
             fprintf(fh, "--------------------------------------------------------------------------------\n");
             fprintf(fh, "%s - debug output\n",CINFO);
             fprintf(fh, "--------------------------------------------------------------------------------\n\n");

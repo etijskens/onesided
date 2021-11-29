@@ -132,6 +132,7 @@ namespace mpi2s
      //  - first retrieves the MessageHandlerKey from a message header
      //  - then looks up the corresponding MessageHandler in theMessageHandlerRegistry
      //  - finally delegates the work to MessageHandler::readMessage()
+        virtual
         bool               // true if the MessageHandlerKey value in the message header
                            // with id msg_id corresponds to this->key_, false otherwise.
                            // in which case the message was not written by this

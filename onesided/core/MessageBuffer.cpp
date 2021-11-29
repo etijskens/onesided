@@ -153,7 +153,7 @@ namespace mpi12s
         std::vector<std::string> lines;
 
         std::stringstream ss;
-        ss<<INFO<<" MessageBuffer::messageToStr(msg_id="<<msg_id<<") (raw buffer view)";
+        ss<<"MessageBuffer::messageToStr(msg_id="<<msg_id<<") (raw buffer view)";
         lines.push_back(ss.str()); ss.str(std::string());
 
         ss<<std::setw( 7)<<"offset"
@@ -169,7 +169,7 @@ namespace mpi12s
         for( Index_t offset=0; offset < msg_szb; offset += sizeof(float) ) {
             ss<<std::setw( 7)<<offset
               <<std::setw(20)<<static_cast<float*>(msg_ptr) + offset/sizeof(float)
-              <<std::setw(20)<<interpretAs<size_t>(msg_ptr, offset)
+              <<std::setw(24)<<interpretAs<size_t>(msg_ptr, offset)
               <<std::setw(20)<<interpretAs<float  >(msg_ptr, offset)
               <<std::setw(20)<<interpretAs<double >(msg_ptr, offset)
               ;
@@ -271,44 +271,92 @@ namespace mpi12s
                   , MPI_COMM_WORLD
                   , &request
                   );
-            } else if( messageDestination(msg_id) == ::mpi12s::rank )
-            {// recv the message content
-                if constexpr(::mpi12s::_debug_ && _debug_) {
-                    prdbg( tostr("MessageBuffer::broadcast() : receiving message content "
-                                , messageSource(msg_id), "->", messageDestination(msg_id)
-                                , ", key=", messageHandlerKey(msg_id))
-                         );
+            } else {
+                if( messageDestination(msg_id) == ::mpi12s::rank )
+                {// recv the message content
+                    if constexpr(::mpi12s::_debug_ && _debug_) {
+                        prdbg( tostr("MessageBuffer::broadcast() : receiving message content "
+                                    , messageSource(msg_id), "->", messageDestination(msg_id)
+                                    , ", key=", messageHandlerKey(msg_id))
+                             );
+                    }
+
+                    int elements_to_add =  messageEnd(msg_id) - messageBegin(msg_id); // this number does not change
+                    Index_t begin = messageEnd(msg_id - 1); // first element of the buffer where the message content will be written
+                     // even if this is the first message to be received, the end of the previous message in the buffer is
+                     // correctly set, since that is a message that was constructed on this rank and therefore the end
+                     // of the previous message exists and is correct.
+                    Index_t end   = begin + elements_to_add; // past-the-end element of the buffer where the message content will be written
+
+                    int succes =
+                    MPI_Recv
+                      ( &pBuffer_[begin]            // pointer to buffer where to store the message
+                      , elements_to_add             // number of elements to receive
+                      , MPI_LONG_LONG_INT
+                      , messageSource(msg_id)       // source rank
+                      , messageHandlerKey(msg_id)   // tag
+                      , MPI_COMM_WORLD
+                      , MPI_STATUS_IGNORE
+                      );
+                 // Update the header of the message, so that the message content can be read afterwards.
+                    setMessageBegin(msg_id, begin);
+                    setMessageEnd  (msg_id, end);
+
+                 // print the messageBuffer:
+                    if constexpr(::mpi12s::_debug_ && _debug_) {
+                        prdbg( tostr( "MessageBuffer::broadcast() : received message content (msg_id=", msg_id, ", "
+                                    , messageSource(msg_id), "->", messageDestination(msg_id), ")"
+                                    )
+                             , messageToStr(msg_id)
+                             );
+                    }
                 }
-
-                int elements_to_add =  messageEnd(msg_id) - messageBegin(msg_id); // this number does not change
-                Index_t begin = messageEnd(msg_id - 1); // first element of the buffer where the message content will be written
-                 // even if this is the first message to be received, the end of the previous message in the buffer is
-                 // correctly set, since that is a message that was constructed on this rank and therefore the end
-                 // of the previous message exists and is correct.
-                Index_t end   = begin + elements_to_add; // past-the-end element of the buffer where the message content will be written
-
-                int succes =
-                MPI_Recv
-                  ( &pBuffer_[begin]            // pointer to buffer where to store the message
-                  , elements_to_add             // number of elements to receive
-                  , MPI_LONG_LONG_INT
-                  , messageSource(msg_id)       // source rank
-                  , messageHandlerKey(msg_id)   // tag
-                  , MPI_COMM_WORLD
-                  , MPI_STATUS_IGNORE
-                  );
-             // Update the header of the message, so that the message content can be read afterwards.
-                setMessageBegin(msg_id, begin);
-                setMessageEnd  (msg_id, end);
+                else {
+                    if constexpr(::mpi12s::_debug_ && _debug_) {
+                        prdbg( tostr("MessageBuffer::broadcast() : skipping message  "
+                                    , messageSource(msg_id), "->", messageDestination(msg_id)
+                                    , " because it it not for this rank (", ::mpi12s::rank, ")"
+                                    )
+                             );
+                    }
+                }
             }
         }
-     // print the messageBuffer:
-        if constexpr(::mpi12s::_debug_ && _debug_) {
-            prdbg("MessageBuffer::broadcast() : messages transferred.");
-            for( Index_t msg_id = 0; msg_id < nMessages(); ++msg_id) {
-                prdbg( tostr("MessageBuffer::broadcast() : message", msg_id, " of ", nMessages())
-                     , messageToStr(msg_id)
-                     );
+    }
+
+    void
+    MessageBuffer::
+    readMessages()
+    {
+     // Loop over all the received messages.
+        for(Index_t msg_id = 0; msg_id < nMessages(); ++msg_id)
+        {
+            if( messageSource     (msg_id) != ::mpi12s::rank
+             && messageDestination(msg_id) == ::mpi12s::rank
+              ) {
+                if constexpr(::mpi12s::_debug_ && _debug_)
+                    prdbg( tostr( "MessageBuffer::readMessages() : reading message ", msg_id, "/", nMessages(), ", "
+                                , messageSource(msg_id), "->", messageDestination(msg_id)
+                                )
+                         );
+             // Fetch the MessageHandler:
+                ::mpi2s::MessageHandlerBase& mh = ::mpi2s::theMessageHandlerRegistry[messageHandlerKey(msg_id)];
+             // read the message
+                mh.readMessage(msg_id);
+
+                if constexpr(::mpi12s::_debug_ && _debug_)
+                    prdbg( tostr( "MessageBuffer::readMessages() : read message ", msg_id, "/", nMessages(), ", "
+                                , messageSource(msg_id), "->", messageDestination(msg_id)
+                                )
+                         , mh.message().debug_text()
+                         );
+            }
+            else {
+                if constexpr(::mpi12s::_debug_ && _debug_)
+                    prdbg( tostr( "MessageBuffer::readMessages() : skipping message ", msg_id, "/", nMessages(), ", "
+                                , messageSource(msg_id), "->", messageDestination(msg_id)
+                                )
+                         );
             }
         }
     }

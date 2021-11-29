@@ -75,6 +75,9 @@ namespace mpi12s
      // This function must be called on all processes.
         void broadcast();
 
+     // Read all the messages (to be called after broadcast()).
+        void readMessages();
+
      // Member functions for reading message headers from a buffer (getters).
      // This can be the buffer in the MPI window of this MessageBox, or a buffer 
      // read from other processes' MPI window. (see member functions getHeaderFromRank

@@ -629,15 +629,6 @@ namespace test6
 
         ParticleContainer(int size)
         {
-            std::stringstream ss;
-            Lines_t lines;
-
-            ss<<std::setw(4)<<"i"
-              <<std::setw(4)<<"r"
-              <<std::setw(4)<<"m"
-//            <<std::setw(4)<<"x0"<<std::setw(4)<<"x1"<<std::setw(4)<<"x2"
-              ;
-            lines.push_back(ss.str()); ss.str(std::string());
             alive_.resize(size);
             r.resize(size);
             m.resize(size);
@@ -649,16 +640,33 @@ namespace test6
                 m[i] = ir + size;
 //                for( int k=0; k<3; ++k )
 //                    x[i][k] = ir+k*size;
-                ss<<std::setw(4)<<i
-                  <<std::setw(4)<<r[i]
-                  <<std::setw(4)<<m[i]
-//                     <<'['<<std::setw(4)<<x[i][0]<<std::setw(4)<<x[i][1]<<std::setw(4)<<x[i][2]<<"]"
-                  ;
-                lines.push_back(ss.str()); ss.str(std::string());
-            }// print_lines(lines);
-            prdbg( tostr("ParticleContainer(size=", size, ")")
-                 , lines
-                 );
+            }
+        }
+
+        void prdbg()
+        {
+            std::stringstream ss;
+            Lines_t lines;
+
+            ss<<std::setw(4)<<"i"
+              <<std::setw(4)<<"r"
+              <<std::setw(4)<<"m"
+//            <<std::setw(4)<<"x0"<<std::setw(4)<<"x1"<<std::setw(4)<<"x2"
+              ;
+            lines.push_back(ss.str()); ss.str(std::string());
+
+            int size = alive_.size();
+            for( int i=0; i<size; ++i) {
+                if( alive_[i] ) {
+                    ss<<std::setw(4)<<i
+                      <<std::setw(4)<<r[i]
+                      <<std::setw(4)<<m[i]
+    //                     <<'['<<std::setw(4)<<x[i][0]<<std::setw(4)<<x[i][1]<<std::setw(4)<<x[i][2]<<"]"
+                      ;
+                    lines.push_back(ss.str()); ss.str(std::string());
+                }
+            }
+            ::mpi12s::prdbg( tostr("ParticleContainer(size=", size, ")"), lines );
         }
 
         size_t // the size of a particle container.
@@ -723,6 +731,7 @@ namespace test6
 //            message().push_back(xi);
         }
 
+        virtual
         void postMessage(std::vector<int>& indices, int to_rank)
         {
             ri.clear();
@@ -739,11 +748,6 @@ namespace test6
                 }
                 MessageHandlerBase::postMessage(to_rank);
                 int n = ri.size();
-//                std::stringstream ss;
-//                ss<<info<<"sending "<<n<<" items to "<<to_rank<<'\n';
-//                for( int i=0; i<n; ++i) {
-//                    ss<<i<<std::setw(4)<<ri[i]<<std::setw(4)<<mi[i]<<" ["<<std::setw(4)<<xi[i][0]<<std::setw(4)<<xi[i][1]<<std::setw(4)<<xi[i][2]<<"]\n";
-//                }   printf("%s", ss.str().data());
             }
          // clearing is not necessary. Here just to make sure that the receivers are correctly resized.
             xi.clear();
@@ -751,30 +755,23 @@ namespace test6
             mi.clear();
         }
 
-        void readMessage()
+        virtual
+        bool
+        readMessage
+          ( Index_t msg_id // the message id identifies the message header
+          )
         {
-//            std::cout<<info<<"sizes before= "<<ri.size()<<','<<mi.size()<<std::endl;
-//            getMessages();
-//            std::cout<<info<<"sizes after = "<<ri.size()<<','<<mi.size()<<std::endl;
-//            int n = ri.size();
-//            std::cout<<info<<n<<" items received\n";
-//            for( int i=0; i<n; ++i) {
-//                std::cout<<info<<i<<' '<<ri[i]<<' '<<mi[i]
-//                          <<" ["<<xi[i][0]<<' '<<xi[i][1]<<' '<<xi[i][2]<<"] "<<ri[i]<<'\n';
-//            }   std::cout<<std::endl;
-//         // copy to the particle container:
-//            std::vector<int> indices(n);
-//            std::stringstream ss;
-//            ss<<::mpi12s::info<<"adding elements ";
-//            for( size_t i = 0; i<n; ++i ) {
-//                indices[i] = pc_.add();
-//                ss<<indices[i]<<' ';
-//            }   std::cout<<ss.str()<<std::endl;
-//            for( size_t i = 0; i<n; ++i ) {
-//                pc_.m[indices[i]] = mi[i];
-//                pc_.r[indices[i]] = ri[i];
-//                pc_.x[indices[i]] = xi[i];
-//            }
+            bool ok = MessageHandlerBase::readMessage(msg_id);
+            if(ok)
+            {// copy back to PC
+                const size_t n = ri.size();
+                for( size_t i = 0; i < n; ++i) {
+                    Index_t j = pc_.add();
+                    pc_.r[j] = ri[i];
+                    pc_.m[j] = mi[i];
+                }
+            }
+            return ok;
         }
     };
 
@@ -785,26 +782,28 @@ namespace test6
         ::mpi12s::theMessageBuffer.initialize(1000, 10);
 
         ParticleContainer pc(8);
+        pc.prdbg();
 
         bool ok = true;
-        {
-            MessageHandler mh(pc);
-         // move the odd particles to the next rank
-         // there is one message for each process
-            std::vector<int> indices = {1,3,5,7};
-            mh.postMessage(indices, next_rank());
+        MessageHandler mh(pc);
+     // move the odd particles to the next rank
+     // there is one message for each process
+        std::vector<int> indices = {1,3,5,7};
 
-            mpi12s::theMessageBuffer.broadcast();
+        mh.postMessage(indices, next_rank());
 
-            mh.readMessage();
-        }
+        mpi12s::theMessageBuffer.broadcast();
+        mpi12s::theMessageBuffer.readMessages();
+        pc.prdbg();
+
+//        mh.readMessage();
 
         Lines_t lines;
         for(size_t i=0; i<pc.size(); ++i )
         {
-            std::stringstream ss;
             if( pc.is_alive(i) )
             {
+                std::stringstream ss;
                 ss<<std::setw(4)<<i
                   <<std::setw(4)<<pc.r[i]
                   <<std::setw(4)<<pc.m[i]
@@ -827,11 +826,10 @@ namespace test6
     //            ok &= pc.x[i] == expected_x;
     //            ss <<' '<<ok<<;
 
-                lines.push_back(ss.str()); ss.str(std::string());
+                lines.push_back(ss.str());
             }
-
         }
-        prdbg("pc", lines);
+        prdbg("pc verify", lines);
 
         std::cout<<::mpi12s::info<<" done"<<std::endl;
         finalize();
